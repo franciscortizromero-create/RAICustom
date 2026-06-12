@@ -12,7 +12,7 @@ export interface StorageAdapter {
   save(db: DB): void
 }
 
-const KEY = 'rai-taller-360-db-v1'
+const KEY = 'rai-taller-360-db-v2'
 
 const localAdapter: StorageAdapter = {
   load() {

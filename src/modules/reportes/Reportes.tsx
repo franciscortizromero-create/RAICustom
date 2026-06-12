@@ -1,4 +1,5 @@
 import { useDB, useScope } from '../../core/store'
+import { useAcceso } from '../../core/permisos'
 import { ETAPAS } from '../../core/types'
 import { PageHeader, Stat } from '../../core/ui'
 import { mxn, diasDesde } from '../../core/format'
@@ -21,6 +22,7 @@ function Barra({ label, value, max, money }: { label: string; value: number; max
 export default function Reportes() {
   const db = useDB()
   const { patio, enScope } = useScope()
+  const verFinanciero = useAcceso()('reportes.financiero') !== 'OCULTO'
 
   const ordenes = db.ordenes.filter((o) => enScope(o.patio))
   const activas = ordenes.filter((o) => !['ENTREGADO', 'FACTURADO', 'PAGADO', 'CANCELADO', 'PAGO_DANOS'].includes(o.status))
@@ -67,16 +69,18 @@ export default function Reportes() {
         <Stat label="Órdenes activas" value={activas.length} />
         <Stat label="Entregadas (histórico)" value={entregadas.length} tone="ok" />
         <Stat label="Ciclo promedio de reparación" value={`${cicloPromedio} días`} tone="accent" hint="ingreso → entrega" />
-        <Stat
-          label="Margen presupuestado"
-          value={(() => {
-            const ls = ordenes.flatMap((o) => o.presupuesto).filter((l) => l.autorizada !== 'RECHAZADA')
-            const v = ls.reduce((s, l) => s + l.venta, 0)
-            const c = ls.reduce((s, l) => s + l.costo, 0)
-            return v ? `${Math.round(((v - c) / v) * 100)}%` : '—'
-          })()}
-          hint="venta vs costo de todas las órdenes"
-        />
+        {verFinanciero && (
+          <Stat
+            label="Margen presupuestado"
+            value={(() => {
+              const ls = ordenes.flatMap((o) => o.presupuesto).filter((l) => l.autorizada !== 'RECHAZADA')
+              const v = ls.reduce((s, l) => s + l.venta, 0)
+              const c = ls.reduce((s, l) => s + l.costo, 0)
+              return v ? `${Math.round(((v - c) / v) * 100)}%` : '—'
+            })()}
+            hint="venta vs costo de todas las órdenes"
+          />
+        )}
       </div>
 
       <div className="grid-2">
@@ -91,10 +95,12 @@ export default function Reportes() {
           {porEtapa.map((x) => <Barra key={x.nombre} label={x.nombre} value={x.n} max={etapaMax} />)}
           {porEtapa.length === 0 && <p className="muted">Sin unidades activas.</p>}
         </div>
-        <div className="card card-pad">
-          <h3 className="section-title mb-4" style={{ marginBottom: 'var(--sp-4)' }}>Venta presupuestada por área</h3>
-          {ventaArea.map((x) => <Barra key={x.area} label={x.area} value={x.venta} max={ventaMax} money />)}
-        </div>
+        {verFinanciero && (
+          <div className="card card-pad">
+            <h3 className="section-title mb-4" style={{ marginBottom: 'var(--sp-4)' }}>Venta presupuestada por área</h3>
+            {ventaArea.map((x) => <Barra key={x.area} label={x.area} value={x.venta} max={ventaMax} money />)}
+          </div>
+        )}
         <div className="card card-pad">
           <h3 className="section-title mb-4" style={{ marginBottom: 'var(--sp-4)' }}>Órdenes más antiguas en taller</h3>
           {masAntiguas.map((o) => (

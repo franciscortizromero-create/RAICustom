@@ -1,8 +1,9 @@
 import type { ComponentType } from 'react'
-import type { DB, Rol } from './types'
+import type { DB, Rol, PermisosConfig } from './types'
 import { ROLES_GLOBALES } from './types'
 import { patioDeVale } from './store'
 import { diasDesde } from './format'
+import Admin from '../modules/admin/Admin'
 import Ordenes from '../modules/ordenes/Ordenes'
 import Taller from '../modules/taller/Taller'
 import Citas from '../modules/citas/Citas'
@@ -34,16 +35,26 @@ export interface ModuleDef {
   component: ComponentType
   /** Roles con acceso al módulo. ADMIN y GERENTE siempre entran. */
   roles?: Rol[]
+  /** Solo visible para roles globales (ADMIN/GERENTE); no asignable a otros. */
+  soloGlobal?: boolean
   kpi?: (db: DB, patio: string) => { text: string; tone: 'blue' | 'green' | 'yellow' | 'red' | 'gray' } | null
 }
 
-/** ¿El rol puede entrar al módulo? ADMIN y GERENTE ven todo. */
-export function puedeVerModulo(rol: Rol, m: ModuleDef): boolean {
+/**
+ * ¿El rol puede entrar al módulo? ADMIN y GERENTE ven todo.
+ * Si hay un override de módulos para el rol en `permisos`, manda ese;
+ * si no, se usa la lista `roles` por defecto del módulo.
+ */
+export function puedeVerModulo(rol: Rol, m: ModuleDef, permisos?: PermisosConfig): boolean {
   if (ROLES_GLOBALES.includes(rol)) return true
+  if (m.soloGlobal) return false
+  const override = permisos?.modulos?.[rol]
+  if (override) return override.includes(m.id)
   return !m.roles || m.roles.includes(rol)
 }
 
-export const modulosPara = (rol: Rol) => MODULES.filter((m) => puedeVerModulo(rol, m))
+export const modulosPara = (rol: Rol, permisos?: PermisosConfig) =>
+  MODULES.filter((m) => puedeVerModulo(rol, m, permisos))
 
 export const MODULES: ModuleDef[] = [
   {
@@ -149,6 +160,12 @@ export const MODULES: ModuleDef[] = [
     descripcion: 'Aseguradoras, técnicos, proveedores, torres, patios y configuración del sistema.',
     icon: 'settings', component: Catalogos,
     roles: [],
+  },
+  {
+    id: 'admin', path: '/admin', nombre: 'Administración', corto: 'Admin',
+    descripcion: 'Alta de personal, asignación de roles y patios, y permisos por módulo y por campo.',
+    icon: 'user', component: Admin, soloGlobal: true,
+    kpi: (db) => ({ text: `${db.usuarios.filter((u) => u.activo).length} usuarios`, tone: 'gray' }),
   },
 ]
 

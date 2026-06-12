@@ -20,7 +20,7 @@ export default function Home() {
   const db = useDB()
   const { rol, patio, global, enScope } = useScope()
   const avisos = alertas(db, patio)
-  const visibles = modulosPara(rol)
+  const visibles = modulosPara(rol, db.permisos)
 
   const misOrdenes = db.ordenes.filter((o) => enScope(o.patio))
   const enPiso = misOrdenes.filter((o) => ['EN_PROCESO', 'GARANTIA'].includes(o.status)).length

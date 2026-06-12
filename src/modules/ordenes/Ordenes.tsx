@@ -5,6 +5,7 @@ import {
   ETAPAS, etapaDef, STATUS_LABEL, type Orden, type OrdenStatus, type LineaPresupuesto,
 } from '../../core/types'
 import { Icon, Modal, Field, PageHeader, StatusBadge, Empty } from '../../core/ui'
+import { useAcceso } from '../../core/permisos'
 import { mxn, fechaCorta, fechaHora, hoyISO, diasDesde, uid } from '../../core/format'
 
 export default function Ordenes() {
@@ -368,12 +369,19 @@ function Detalle() {
   const rol = useRol()
   const { enScope } = useScope()
   const nav = useNavigate()
+  const acc = useAcceso()
   const o = db.ordenes.find((x) => x.id === id)
   const [modalLinea, setModalLinea] = useState(false)
 
   if (!o) return <Empty msg="Orden no encontrada." />
   if (!enScope(o.patio))
     return <Empty msg={`Esta orden pertenece al patio ${o.patio}. Tu sesión solo tiene acceso a su patio asignado.`} />
+
+  // Permisos por campo (configurables en Administración)
+  const verCostos = acc('ordenes.costos') !== 'OCULTO'
+  const verMargen = acc('ordenes.margen') !== 'OCULTO'
+  const editarPpto = acc('ordenes.presupuesto') === 'EDITAR'
+  const verCliente = acc('ordenes.cliente') !== 'OCULTO'
   const cia = db.aseguradoras.find((a) => a.id === o.aseguradoraId)
   const valesOrden = db.vales.filter((v) => v.ordenId === o.id)
   const totalVenta = o.presupuesto.filter((l) => l.autorizada !== 'RECHAZADA').reduce((s, l) => s + l.venta, 0)
@@ -450,12 +458,18 @@ function Detalle() {
         <div className="card card-pad">
           <h3 className="section-title">Propietario</h3>
           <p style={{ fontWeight: 700 }}>{o.cliente.nombre}</p>
-          <p className="muted">{o.cliente.telefono}{o.cliente.email ? ` · ${o.cliente.email}` : ''}</p>
-          <div className="row mt-4">
-            <button className="btn btn-outline btn-sm" onClick={() => alert(`Demo: se enviaría la copia de la orden y avisos de avance a ${o.cliente.telefono} por WhatsApp.`)}>
-              Enviar copia por WhatsApp
-            </button>
-          </div>
+          {verCliente ? (
+            <p className="muted">{o.cliente.telefono}{o.cliente.email ? ` · ${o.cliente.email}` : ''}</p>
+          ) : (
+            <p className="muted" style={{ fontStyle: 'italic' }}>Datos de contacto ocultos para tu rol</p>
+          )}
+          {verCliente && (
+            <div className="row mt-4">
+              <button className="btn btn-outline btn-sm" onClick={() => alert(`Demo: se enviaría la copia de la orden y avisos de avance a ${o.cliente.telefono} por WhatsApp.`)}>
+                Enviar copia por WhatsApp
+              </button>
+            </div>
+          )}
           <h3 className="section-title mt-4" style={{ marginTop: 'var(--sp-4)' }}>Inventarios</h3>
           {o.inventarios.map((inv, i) => (
             <div key={i} className="row-between" style={{ fontSize: 'var(--fs-sm)', padding: '6px 0', borderBottom: '1px solid var(--gray-100)' }}>
@@ -500,21 +514,26 @@ function Detalle() {
       <div className="card card-pad mb-6" style={{ marginBottom: 'var(--sp-6)' }}>
         <div className="row-between mb-4" style={{ marginBottom: 'var(--sp-4)' }}>
           <h3 className="section-title">Presupuesto / Valuación</h3>
-          <div className="row">
-            {o.presupuesto.some((l) => l.autorizada === 'PENDIENTE') && (
-              <button className="btn btn-primary btn-sm" onClick={autorizarLineas}>
-                <Icon name="check" size={16} /> Registrar autorización {o.tipoCliente === 'SEGURO' ? 'de la CIA' : 'del cliente'}
+          {editarPpto && (
+            <div className="row">
+              {o.presupuesto.some((l) => l.autorizada === 'PENDIENTE') && (
+                <button className="btn btn-primary btn-sm" onClick={autorizarLineas}>
+                  <Icon name="check" size={16} /> Registrar autorización {o.tipoCliente === 'SEGURO' ? 'de la CIA' : 'del cliente'}
+                </button>
+              )}
+              <button className="btn btn-outline btn-sm" onClick={() => setModalLinea(true)}>
+                <Icon name="plus" size={16} /> Agregar concepto
               </button>
-            )}
-            <button className="btn btn-outline btn-sm" onClick={() => setModalLinea(true)}>
-              <Icon name="plus" size={16} /> Agregar concepto
-            </button>
-          </div>
+            </div>
+          )}
         </div>
         <div className="table-wrap">
           <table className="data">
             <thead>
-              <tr><th>Concepto</th><th>Área</th><th>Operación</th><th>Costo</th><th>Venta</th><th>Autorización</th></tr>
+              <tr>
+                <th>Concepto</th><th>Área</th><th>Operación</th>
+                {verCostos && <th>Costo</th>}<th>Venta</th><th>Autorización</th>
+              </tr>
             </thead>
             <tbody>
               {o.presupuesto.map((l, i) => (
@@ -522,7 +541,7 @@ function Detalle() {
                   <td>{l.concepto}</td>
                   <td><span className="badge badge-gray">{l.area}</span></td>
                   <td>{l.operacion}</td>
-                  <td>{mxn(l.costo)}</td>
+                  {verCostos && <td>{mxn(l.costo)}</td>}
                   <td style={{ fontWeight: 600 }}>{mxn(l.venta)}</td>
                   <td>
                     <span className={`badge ${l.autorizada === 'AUTORIZADA' ? 'badge-green' : l.autorizada === 'RECHAZADA' ? 'badge-red' : l.autorizada === 'COMPLEMENTO' ? 'badge-blue' : 'badge-yellow'}`}>
@@ -534,9 +553,9 @@ function Detalle() {
               {o.presupuesto.length > 0 && (
                 <tr style={{ fontWeight: 800 }}>
                   <td colSpan={3}>Totales (sin rechazadas)</td>
-                  <td>{mxn(totalCosto)}</td>
+                  {verCostos && <td>{mxn(totalCosto)}</td>}
                   <td style={{ color: 'var(--rai-blue-700)' }}>{mxn(totalVenta)}</td>
-                  <td>{totalVenta > 0 && <span className="muted">margen {Math.round(((totalVenta - totalCosto) / totalVenta) * 100)}%</span>}</td>
+                  <td>{verMargen && totalVenta > 0 && <span className="muted">margen {Math.round(((totalVenta - totalCosto) / totalVenta) * 100)}%</span>}</td>
                 </tr>
               )}
             </tbody>
@@ -554,7 +573,7 @@ function Detalle() {
               <div>
                 <div style={{ fontWeight: 600, fontSize: 'var(--fs-sm)' }}>{r.descripcion}</div>
                 <div className="muted" style={{ fontSize: 'var(--fs-xs)' }}>
-                  {db.proveedores.find((p) => p.id === r.proveedorId)?.nombre ?? 'Proveedor por asignar'} · {r.origen} · {mxn(r.costo)}
+                  {db.proveedores.find((p) => p.id === r.proveedorId)?.nombre ?? 'Proveedor por asignar'} · {r.origen}{verCostos ? ` · ${mxn(r.costo)}` : ''}
                   {r.fechaPromesa && !r.recibida && ` · promesa ${fechaCorta(r.fechaPromesa)}`}
                 </div>
               </div>

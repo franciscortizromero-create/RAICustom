@@ -28,6 +28,38 @@ export const ROL_LABEL: Record<Rol, string> = {
 /** Solo ADMIN y GERENTE ven los 3 patios; el resto se asigna a un patio. */
 export const ROLES_GLOBALES: Rol[] = ['ADMIN', 'GERENTE']
 
+/** Niveles de acceso a un campo/sección protegida dentro de un módulo. */
+export type Acceso = 'EDITAR' | 'VER' | 'OCULTO'
+
+export const ACCESO_LABEL: Record<Acceso, string> = {
+  EDITAR: 'Editar',
+  VER: 'Solo ver',
+  OCULTO: 'Oculto',
+}
+
+/** Empleado con acceso al sistema (cuenta de usuario). */
+export interface Usuario {
+  id: string
+  nombre: string
+  email?: string
+  telefono?: string
+  rol: Rol
+  patio: string // '' = todos los patios (solo roles globales)
+  activo: boolean
+  ingreso: string // fecha de alta
+}
+
+/**
+ * Configuración de permisos editable desde el módulo de Administración.
+ * - `modulos`: lista de ids de módulos accesibles por rol (override del default).
+ * - `campos`: acceso por campo protegido (rol → campoId → Acceso).
+ * ADMIN y GERENTE siempre ven y editan todo (no se limitan).
+ */
+export interface PermisosConfig {
+  modulos: Partial<Record<Rol, string[]>>
+  campos: Partial<Record<Rol, Record<string, Acceso>>>
+}
+
 // Etapas de producción (flujo del taller). Las etapas con % generan
 // productividad para el técnico sobre el monto de venta del área.
 export type EtapaId =
@@ -331,5 +363,7 @@ export interface DB {
   contraRecibos: ContraRecibo[]
   facturas: Factura[]
   pagosProductividad: PagoProductividad[]
+  usuarios: Usuario[]
+  permisos: PermisosConfig
   config: { siguienteFolioOrden: number; siguienteFolioVale: number; siguienteFolioCR: number; torres: string[]; patios: string[] }
 }

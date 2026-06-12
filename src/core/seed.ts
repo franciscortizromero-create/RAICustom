@@ -1,4 +1,4 @@
-import type { DB, Orden, Vale, Tecnico, Material, Proveedor, Aseguradora, EtapaId } from './types'
+import type { DB, Orden, Vale, Tecnico, Material, Proveedor, Aseguradora, EtapaId, Usuario, PermisosConfig } from './types'
 import { uid } from './format'
 
 const dAgo = (n: number, h = 10) => {
@@ -265,6 +265,35 @@ const vales: Vale[] = [
   { id: 'v6', folio: 4106, tipo: 'REFACCION', ordenId: ordenes[2].id, proveedorId: 'refa2', solicita: 'OR', descripcion: 'Fascia tras. + sensor Rio 21', monto: 4650, fecha: dAgo(4, 12), status: 'AUTORIZADO', autorizadoPor: 'Gerente', autorizadoRol: 'GERENTE' },
 ]
 
+const usuarios: Usuario[] = [
+  { id: 'u_admin', nombre: 'Francisco Ortiz', email: 'admin@rai.mx', rol: 'ADMIN', patio: '', activo: true, ingreso: dAgo(400) },
+  { id: 'u_ger', nombre: 'Roberto Aguilar', email: 'gerencia@rai.mx', rol: 'GERENTE', patio: '', activo: true, ingreso: dAgo(380) },
+  { id: 'u_sub', nombre: 'Diana Esquivel', rol: 'SUBGERENTE', patio: 'AQUILES', activo: true, ingreso: dAgo(300) },
+  { id: 'u_jt', nombre: 'Ernesto Lara', rol: 'JEFE_TALLER', patio: 'P26', activo: true, ingreso: dAgo(250) },
+  { id: 'u_val1', nombre: 'Omar Reyes (OR)', rol: 'VALUADOR', patio: 'AQUILES', activo: true, ingreso: dAgo(210) },
+  { id: 'u_val2', nombre: 'Jorge Zúñiga (JZ)', rol: 'VALUADOR', patio: 'GPE P', activo: true, ingreso: dAgo(180) },
+  { id: 'u_ase', nombre: 'Paola Núñez', rol: 'ASESOR', patio: 'AQUILES', activo: true, ingreso: dAgo(120) },
+  { id: 'u_alm', nombre: 'Sergio Bravo', rol: 'ALMACENISTA', patio: 'P26', activo: true, ingreso: dAgo(150) },
+  { id: 'u_rh', nombre: 'Mónica Trejo', rol: 'RH', patio: '', activo: true, ingreso: dAgo(260) },
+  { id: 'u_cont', nombre: 'Adriana Vega', rol: 'CONTADORA', patio: '', activo: true, ingreso: dAgo(340) },
+]
+
+// Permisos por defecto. ADMIN/GERENTE no se limitan. El caso pedido por el
+// cliente: el VALUADOR (y el ASESOR) no ven el margen de utilidad ni los
+// indicadores financieros; el ASESOR además solo consulta el presupuesto.
+const permisos: PermisosConfig = {
+  modulos: {},
+  campos: {
+    VALUADOR: { 'ordenes.margen': 'OCULTO', 'reportes.financiero': 'OCULTO' },
+    ASESOR: {
+      'ordenes.margen': 'OCULTO', 'ordenes.costos': 'OCULTO',
+      'ordenes.presupuesto': 'VER', 'reportes.financiero': 'OCULTO',
+    },
+    JEFE_TALLER: { 'ordenes.margen': 'VER' },
+    ALMACENISTA: {},
+  },
+}
+
 const db: DB = {
   ordenes,
   vales,
@@ -304,6 +333,8 @@ const db: DB = {
     { id: 'f2', folio: 'B-10398', ordenId: ordenes[5].id, cliente: 'Qualitas Cía. de Seguros', monto: 10800, fecha: dAgo(3), estado: 'PAGADA', fechaPago: dAgo(1), formaPago: 'Transferencia' },
   ],
   pagosProductividad: [],
+  usuarios,
+  permisos,
   config: {
     siguienteFolioOrden: 24226,
     siguienteFolioVale: 4107,

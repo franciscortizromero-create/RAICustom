@@ -32,6 +32,7 @@ automáticamente y persisten en el navegador. Se restauran desde
 | **Garantías** | Reapertura con inventario nuevo, diagnóstico de procedencia, reproceso ligado a la orden original con los mismos técnicos. |
 | **Reportes y KPIs** | Ciclo de reparación, mezcla de aseguradoras, venta por área, cuellos de botella por etapa y órdenes más antiguas. |
 | **Catálogos** | Técnicos (con carga actual), proveedores, aseguradoras (QLTS, ABA, ATLAS, BBVA, SURA, WIBE, CHUBB), préstamos, folios y patios (AQUILES, P26, GPE P). |
+| **Administración** *(solo ADMIN/Gerente)* | Alta de personal con su rol y patio, matriz de acceso a módulos por rol, y editor de permisos por campo (Editar / Solo ver / Oculto). |
 
 ## Mejoras añadidas sin romper el flujo actual
 
@@ -95,6 +96,30 @@ src/
   por patio en `core/store.ts` (`useScope`): cambiarla no toca las pantallas.
 - Además de ocultar la navegación, las **rutas están protegidas** (entrar por URL a un
   módulo ajeno muestra "sin acceso") y el expediente de una orden de otro patio se bloquea.
+
+### Administración: personal, roles editables y permisos por campo
+
+El módulo **Administración** (solo ADMIN/Gerente) centraliza la configuración de acceso, y
+lo que se define ahí **aplica en vivo** al resto del sistema:
+
+1. **Personal** — alta/edición de quien entra a trabajar, con su rol y patio. El botón
+   "Entrar como" permite ver el sistema tal como lo vería ese usuario.
+2. **Roles y módulos** — matriz editable de qué módulos ve cada rol (override de los
+   defaults; guardado en `permisos.modulos`).
+3. **Permisos por campo** — para cada rol, el acceso a campos sensibles en tres niveles:
+   **Editar**, **Solo ver** u **Oculto** (guardado en `permisos.campos`). Campos protegidos
+   actuales (en `core/permisos.ts`, ampliable):
+
+   | Campo | Módulo | Default | Ejemplo |
+   | --- | --- | --- | --- |
+   | Margen de utilidad | Órdenes | Solo ver | **Valuador → Oculto** (no ve el margen) |
+   | Costos del presupuesto | Órdenes | Editar | Asesor → Oculto |
+   | Editar/autorizar presupuesto | Órdenes | Editar | Asesor → Solo ver |
+   | Datos de contacto del cliente | Órdenes | Solo ver | — |
+   | Indicadores financieros | Reportes | Solo ver | Valuador/Asesor → Oculto |
+
+   La capa es genérica: agregar un campo nuevo es una línea en `CAMPOS_PROTEGIDOS` y un
+   chequeo `useAcceso()('id.campo')` donde se renderice. ADMIN y Gerente ven y editan todo.
 
 ## Diseño
 

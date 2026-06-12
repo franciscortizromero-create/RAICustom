@@ -18,7 +18,7 @@ export default function App() {
   const sesion = useSesion()
   const db = useDB()
   const global = esRolGlobal(sesion.rol)
-  const visibles = modulosPara(sesion.rol)
+  const visibles = modulosPara(sesion.rol, db.permisos)
 
   return (
     <div className="app-shell">
@@ -71,7 +71,7 @@ export default function App() {
             <Route
               key={m.id}
               path={`${m.path}/*`}
-              element={puedeVerModulo(sesion.rol, m) ? <m.component /> : <SinAcceso nombre={m.nombre} />}
+              element={puedeVerModulo(sesion.rol, m, db.permisos) ? <m.component /> : <SinAcceso nombre={m.nombre} />}
             />
           ))}
         </Routes>
