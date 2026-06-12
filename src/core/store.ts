@@ -12,7 +12,7 @@ export interface StorageAdapter {
   save(db: DB): void
 }
 
-const KEY = 'rai-taller-360-db-v2'
+const KEY = 'rai-taller-360-db-v3'
 
 const localAdapter: StorageAdapter = {
   load() {
@@ -131,10 +131,10 @@ export const patioDeVale = (db: DB, v: Vale): string | undefined =>
 
 // ── Reglas de negocio (del Formulario de procesos) ─────────────────────
 
-/** Compras con vale: >$2,000 autoriza solo Gerente; ≤$2,000 en cascada. */
-export function puedeAutorizarVale(rol: Rol, monto: number): boolean {
-  if (rol === 'GERENTE') return true
-  if (monto <= 2000) return rol === 'SUBGERENTE' || rol === 'JEFE_TALLER'
+/** Compras con vale: por encima del umbral autoriza solo Gerente; debajo, en cascada. */
+export function puedeAutorizarVale(rol: Rol, monto: number, umbral = 2000): boolean {
+  if (rol === 'ADMIN' || rol === 'GERENTE') return true
+  if (monto <= umbral) return rol === 'SUBGERENTE' || rol === 'JEFE_TALLER'
   return false
 }
 
@@ -143,7 +143,7 @@ export function puedeAutorizarSalida(rol: Rol): boolean {
   return ['GERENTE', 'SUBGERENTE', 'JEFE_TALLER', 'VALUADOR'].includes(rol)
 }
 
-/** Particulares: refacciones >$1,000 requieren anticipo para levantar pedido. */
-export function requiereAnticipo(tipoCliente: 'SEGURO' | 'PARTICULAR', montoRefacciones: number): boolean {
-  return tipoCliente === 'PARTICULAR' && montoRefacciones > 1000
+/** Particulares: refacciones por encima del umbral requieren anticipo para levantar pedido. */
+export function requiereAnticipo(tipoCliente: 'SEGURO' | 'PARTICULAR', montoRefacciones: number, umbral = 1000): boolean {
+  return tipoCliente === 'PARTICULAR' && montoRefacciones > umbral
 }

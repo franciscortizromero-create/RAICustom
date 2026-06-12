@@ -26,12 +26,19 @@ function ventaArea(o: Orden, area: 'HOJALATERIA' | 'PINTURA' | 'MECANICA'): numb
     .reduce((s, l) => s + l.venta, 0)
 }
 
+/** % de productividad de una etapa: override de parámetros o el default de ETAPAS. */
+export function pctDeEtapa(db: DB, etapa: EtapaId): number | undefined {
+  const ov = db.parametros?.pctEtapa?.[etapa]
+  return ov ?? etapaDef(etapa).pct
+}
+
 export function lineasDeSemana(db: DB, semana: string): LineaProductividad[] {
   const out: LineaProductividad[] = []
   for (const o of db.ordenes) {
     for (const log of o.etapasLog) {
       const def = etapaDef(log.etapa)
-      if (!def.pct || !log.tecnicoId) continue
+      const pct = pctDeEtapa(db, log.etapa)
+      if (!pct || !log.tecnicoId) continue
       if (claveSemana(new Date(log.fecha)) !== semana) continue
       const base = ventaArea(o, def.area as 'HOJALATERIA' | 'PINTURA' | 'MECANICA')
       out.push({
@@ -41,8 +48,8 @@ export function lineasDeSemana(db: DB, semana: string): LineaProductividad[] {
         etapa: log.etapa,
         fecha: log.fecha,
         base,
-        pct: def.pct,
-        monto: Math.round((base * def.pct) / 100),
+        pct,
+        monto: Math.round((base * pct) / 100),
       })
     }
   }
@@ -53,7 +60,7 @@ export function semanasDisponibles(db: DB): string[] {
   const set = new Set<string>()
   for (const o of db.ordenes)
     for (const log of o.etapasLog)
-      if (etapaDef(log.etapa).pct && log.tecnicoId) set.add(claveSemana(new Date(log.fecha)))
+      if (pctDeEtapa(db, log.etapa) && log.tecnicoId) set.add(claveSemana(new Date(log.fecha)))
   return [...set].sort().reverse()
 }
 

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDB, update, useRol, useScope } from '../../core/store'
 import { ETAPAS, etapaDef, type EtapaId, type Orden } from '../../core/types'
-import { cargaTecnico } from '../../core/productividad'
+import { cargaTecnico, pctDeEtapa } from '../../core/productividad'
 import { Icon, Modal, Field, PageHeader } from '../../core/ui'
 import { hoyISO, diasDesde, fechaCorta } from '../../core/format'
 
@@ -50,7 +50,7 @@ export default function Taller() {
           return (
             <div key={et.id} className="kanban-col" role="listitem">
               <header>
-                <span>{et.nombre}{et.pct ? ` · ${et.pct}%` : ''}</span>
+                <span>{et.nombre}{pctDeEtapa(db, et.id) ? ` · ${pctDeEtapa(db, et.id)}%` : ''}</span>
                 <span className="badge badge-navy">{cards.length}</span>
               </header>
               {cards.map((o) => {
@@ -151,7 +151,7 @@ function ModalOrden({ o, onClose, rol }: { o: Orden; onClose: () => void; rol: s
           <h4 className="section-title" style={{ fontSize: 'var(--fs-md)' }}>Avanzar etapa</h4>
           <p className="muted" style={{ fontSize: 'var(--fs-sm)' }}>
             Etapa actual: <strong>{actual.nombre}</strong>
-            {actual.pct ? ` (genera ${actual.pct}% de productividad al completarse)` : ''}
+            {pctDeEtapa(db, actual.id) ? ` (genera ${pctDeEtapa(db, actual.id)}% de productividad al completarse)` : ''}
           </p>
           {faltaTecnico && (
             <p style={{ color: 'var(--danger-600)', fontWeight: 600, fontSize: 'var(--fs-sm)' }} role="alert">

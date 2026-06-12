@@ -49,8 +49,8 @@ export default function Vales() {
       />
       <div className="card card-pad mb-6" style={{ marginBottom: 'var(--sp-6)', background: 'var(--rai-blue-50)', border: 'none' }}>
         <p style={{ fontSize: 'var(--fs-sm)' }}>
-          <strong>Regla de autorización:</strong> compras mayores a {mxn(2000)} solo las autoriza el <strong>Gerente</strong>;
-          hasta {mxn(2000)} pueden autorizar Subgerente o Jefe de Taller en cascada. Rol activo:{' '}
+          <strong>Regla de autorización:</strong> compras mayores a {mxn(db.parametros.umbralAutorizacionVale)} solo las autoriza el <strong>Gerente</strong>;
+          hasta {mxn(db.parametros.umbralAutorizacionVale)} pueden autorizar Subgerente o Jefe de Taller en cascada. Rol activo:{' '}
           <span className="badge badge-navy">{ROL_LABEL[rol]}</span>
         </p>
       </div>
@@ -99,14 +99,14 @@ export default function Vales() {
                   </td>
                   <td>
                     {v.status === 'PENDIENTE' && (
-                      puedeAutorizarVale(rol, v.monto) ? (
+                      puedeAutorizarVale(rol, v.monto, db.parametros.umbralAutorizacionVale) ? (
                         <div className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
                           <button className="btn btn-primary btn-sm" onClick={() => autorizar(v)}><Icon name="check" size={14} /> Autorizar</button>
                           <button className="btn btn-ghost btn-sm" onClick={() => rechazar(v)} aria-label={`Rechazar vale ${v.folio}`}><Icon name="x" size={14} /></button>
                         </div>
                       ) : (
                         <span className="muted" style={{ fontSize: 'var(--fs-xs)' }}>
-                          {v.monto > 2000 ? 'Requiere Gerente' : 'Requiere Subgte./Jefe Taller'}
+                          {v.monto > db.parametros.umbralAutorizacionVale ? 'Requiere Gerente' : 'Requiere Subgte./Jefe Taller'}
                         </span>
                       )
                     )}
@@ -144,7 +144,8 @@ function ModalNuevo({ onClose }: { onClose: () => void }) {
     : p.giro === 'MATERIALES',
   )
   const valido = f.proveedorId && f.solicita && f.descripcion && f.monto > 0 && (!necesitaOrden || f.ordenId)
-  const autoAutoriza = puedeAutorizarVale(rol, f.monto)
+  const umbral = db.parametros.umbralAutorizacionVale
+  const autoAutoriza = puedeAutorizarVale(rol, f.monto, umbral)
 
   const guardar = () => {
     const patioVale = db.ordenes.find((o) => o.id === f.ordenId)?.patio ?? patioSesion ?? undefined
@@ -206,7 +207,7 @@ function ModalNuevo({ onClose }: { onClose: () => void }) {
       <p className="muted mt-4" style={{ marginTop: 'var(--sp-4)', fontSize: 'var(--fs-sm)' }}>
         {f.monto > 0 && (autoAutoriza
           ? `Tu rol (${ROL_LABEL[rol]}) puede autorizar este monto: el vale nace autorizado.`
-          : `Este monto ${f.monto > 2000 ? `excede ${mxn(2000)}: requerirá autorización del Gerente` : 'requerirá autorización de Subgerente o Jefe de Taller'}.`)}
+          : `Este monto ${f.monto > umbral ? `excede ${mxn(umbral)}: requerirá autorización del Gerente` : 'requerirá autorización de Subgerente o Jefe de Taller'}.`)}
       </p>
       <div className="row-between mt-6">
         <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>

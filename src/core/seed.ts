@@ -1,5 +1,11 @@
-import type { DB, Orden, Vale, Tecnico, Material, Proveedor, Aseguradora, EtapaId, Usuario, PermisosConfig } from './types'
+import type { DB, Orden, Vale, Tecnico, Material, Proveedor, Aseguradora, EtapaId, Usuario, PermisosConfig, Parametros } from './types'
 import { uid } from './format'
+
+export const CHECKLIST_DEFAULT = [
+  'Espejos laterales', 'Tapones de rueda', 'Antena', 'Gato y llave',
+  'Llanta refacción', 'Estéreo', 'Tapetes', 'Documentos en guantera',
+  'Encendedor', 'Extintor', 'Triángulos de seguridad',
+]
 
 const dAgo = (n: number, h = 10) => {
   const d = new Date()
@@ -294,6 +300,13 @@ const permisos: PermisosConfig = {
   },
 }
 
+const parametros: Parametros = {
+  umbralAutorizacionVale: 2000,
+  umbralAnticipoParticular: 1000,
+  pctEtapa: {},
+  checklistInventario: [...CHECKLIST_DEFAULT],
+}
+
 const db: DB = {
   ordenes,
   vales,
@@ -335,6 +348,7 @@ const db: DB = {
   pagosProductividad: [],
   usuarios,
   permisos,
+  parametros,
   config: {
     siguienteFolioOrden: 24226,
     siguienteFolioVale: 4107,

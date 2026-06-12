@@ -2,13 +2,15 @@ import { useState } from 'react'
 import { useDB, update, setSesion } from '../../core/store'
 import { MODULES } from '../../core/registry'
 import { CAMPOS_PROTEGIDOS } from '../../core/permisos'
+import { ETAPAS } from '../../core/types'
 import {
   ROL_LABEL, ROLES_GLOBALES, ACCESO_LABEL, type Rol, type Acceso, type Usuario,
+  type Proveedor, type Aseguradora,
 } from '../../core/types'
 import { Icon, Modal, Field, PageHeader, Empty } from '../../core/ui'
-import { fechaCorta, uid, hoyISO } from '../../core/format'
+import { mxn, fechaCorta, uid, hoyISO } from '../../core/format'
 
-type Tab = 'personal' | 'modulos' | 'campos'
+type Tab = 'personal' | 'modulos' | 'campos' | 'parametros' | 'productividad' | 'catalogos'
 
 const ROLES: Rol[] = ['ADMIN', 'GERENTE', 'SUBGERENTE', 'JEFE_TALLER', 'VALUADOR', 'ASESOR', 'ALMACENISTA', 'RH', 'CONTADORA']
 const ROLES_EDITABLES = ROLES.filter((r) => !ROLES_GLOBALES.includes(r))
@@ -23,6 +25,9 @@ export default function Admin() {
     ['personal', 'Personal', 'user'],
     ['modulos', 'Roles y módulos', 'settings'],
     ['campos', 'Permisos por campo', 'shield'],
+    ['parametros', 'Parámetros', 'gauge'],
+    ['productividad', 'Productividad %', 'chart'],
+    ['catalogos', 'Catálogos', 'box'],
   ]
   return (
     <>
@@ -44,6 +49,9 @@ export default function Admin() {
       {tab === 'personal' && <Personal />}
       {tab === 'modulos' && <RolesModulos />}
       {tab === 'campos' && <PermisosCampo />}
+      {tab === 'parametros' && <Parametros />}
+      {tab === 'productividad' && <ProductividadPct />}
+      {tab === 'catalogos' && <Catalogos />}
     </>
   )
 }
@@ -322,5 +330,271 @@ function PermisosCampo() {
         ))}
       </p>
     </>
+  )
+}
+
+// ── 4. Parámetros de negocio ────────────────────────────────────────────
+function Parametros() {
+  const db = useDB()
+  const p = db.parametros
+  const [nuevoItem, setNuevoItem] = useState('')
+
+  const setNum = (k: 'umbralAutorizacionVale' | 'umbralAnticipoParticular', v: number) =>
+    update((d) => { d.parametros[k] = v })
+
+  return (
+    <>
+      <div className="grid-2 mb-6" style={{ marginBottom: 'var(--sp-6)' }}>
+        <div className="card card-pad">
+          <h3 className="section-title">Autorización de vales</h3>
+          <p className="muted" style={{ fontSize: 'var(--fs-sm)', marginBottom: 'var(--sp-3)' }}>
+            Compras por encima de este monto solo las autoriza el Gerente; por debajo, Subgerente o Jefe de Taller.
+          </p>
+          <Field label="Umbral de autorización (MXN)">
+            <input type="number" min={0} step={100} value={p.umbralAutorizacionVale}
+              onChange={(e) => setNum('umbralAutorizacionVale', +e.target.value)} />
+          </Field>
+          <p className="muted mt-2" style={{ fontSize: 'var(--fs-xs)' }}>Actual: {mxn(p.umbralAutorizacionVale)}</p>
+        </div>
+        <div className="card card-pad">
+          <h3 className="section-title">Anticipo de particulares</h3>
+          <p className="muted" style={{ fontSize: 'var(--fs-sm)', marginBottom: 'var(--sp-3)' }}>
+            En clientes particulares, refacciones por encima de este monto requieren anticipo para levantar el pedido.
+          </p>
+          <Field label="Umbral de anticipo (MXN)">
+            <input type="number" min={0} step={100} value={p.umbralAnticipoParticular}
+              onChange={(e) => setNum('umbralAnticipoParticular', +e.target.value)} />
+          </Field>
+          <p className="muted mt-2" style={{ fontSize: 'var(--fs-xs)' }}>Actual: {mxn(p.umbralAnticipoParticular)}</p>
+        </div>
+      </div>
+
+      <div className="card card-pad">
+        <h3 className="section-title mb-4" style={{ marginBottom: 'var(--sp-4)' }}>Checklist de inventario de ingreso</h3>
+        <p className="muted" style={{ fontSize: 'var(--fs-sm)', marginBottom: 'var(--sp-3)' }}>
+          Ítems que se revisan al recibir el vehículo (módulo Órdenes → nueva orden).
+        </p>
+        <div className="grid-3">
+          {p.checklistInventario.map((item, i) => (
+            <div key={i} className="row-between" style={{ background: 'var(--gray-50)', borderRadius: 'var(--radius)', padding: '6px 12px' }}>
+              <span style={{ fontSize: 'var(--fs-sm)' }}>{item}</span>
+              <button className="btn btn-ghost btn-sm" aria-label={`Quitar ${item}`}
+                onClick={() => update((d) => { d.parametros.checklistInventario.splice(i, 1) })}>
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="row mt-4" style={{ marginTop: 'var(--sp-4)' }}>
+          <input
+            placeholder="Nuevo ítem del checklist…" value={nuevoItem}
+            onChange={(e) => setNuevoItem(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && nuevoItem.trim()) { update((d) => d.parametros.checklistInventario.push(nuevoItem.trim())); setNuevoItem('') } }}
+            style={{ minHeight: 44, padding: '0 12px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius)', minWidth: 260 }}
+          />
+          <button className="btn btn-accent" disabled={!nuevoItem.trim()}
+            onClick={() => { update((d) => d.parametros.checklistInventario.push(nuevoItem.trim())); setNuevoItem('') }}>
+            <Icon name="plus" size={16} /> Agregar ítem
+          </button>
+        </div>
+      </div>
+
+      <div className="card card-pad mt-6" style={{ marginTop: 'var(--sp-6)' }}>
+        <h3 className="section-title">Folios y patios</h3>
+        <div className="grid-3 mt-4">
+          <Field label="Siguiente folio de orden">
+            <input type="number" value={db.config.siguienteFolioOrden}
+              onChange={(e) => update((d) => { d.config.siguienteFolioOrden = +e.target.value })} />
+          </Field>
+          <Field label="Siguiente folio de vale">
+            <input type="number" value={db.config.siguienteFolioVale}
+              onChange={(e) => update((d) => { d.config.siguienteFolioVale = +e.target.value })} />
+          </Field>
+          <Field label="Siguiente folio de contrarecibo">
+            <input type="number" value={db.config.siguienteFolioCR}
+              onChange={(e) => update((d) => { d.config.siguienteFolioCR = +e.target.value })} />
+          </Field>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ── 5. Porcentajes de productividad por etapa ───────────────────────────
+function ProductividadPct() {
+  const db = useDB()
+  const etapasConPct = ETAPAS.filter((e) => e.pct !== undefined)
+  const valor = (id: string, def?: number) => db.parametros.pctEtapa[id as never] ?? def ?? 0
+
+  return (
+    <>
+      <div className="card card-pad mb-6" style={{ marginBottom: 'var(--sp-6)', background: 'var(--rai-blue-50)', border: 'none' }}>
+        <p style={{ fontSize: 'var(--fs-sm)' }}>
+          Porcentaje que se paga al técnico sobre la <strong>venta del área</strong> al completar cada etapa.
+          Afecta el corte semanal de Productividad. Deja en blanco para usar el valor por defecto.
+        </p>
+      </div>
+      <div className="card table-wrap">
+        <table className="data">
+          <thead>
+            <tr><th>Etapa</th><th>Área</th><th>% por defecto</th><th>% vigente</th></tr>
+          </thead>
+          <tbody>
+            {etapasConPct.map((e) => (
+              <tr key={e.id}>
+                <td style={{ fontWeight: 600 }}>{e.nombre}</td>
+                <td><span className="badge badge-gray">{e.area}</span></td>
+                <td className="muted">{e.pct}%</td>
+                <td>
+                  <div className="row" style={{ gap: 8 }}>
+                    <input
+                      type="number" min={0} max={100} step={1}
+                      value={db.parametros.pctEtapa[e.id] ?? ''}
+                      placeholder={String(e.pct)}
+                      onChange={(ev) => update((d) => {
+                        const v = ev.target.value
+                        if (v === '') delete d.parametros.pctEtapa[e.id]
+                        else d.parametros.pctEtapa[e.id] = +v
+                      })}
+                      style={{ width: 90, minHeight: 40, padding: '0 10px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius)' }}
+                    />
+                    <span style={{ fontWeight: 700 }}>{valor(e.id, e.pct)}%</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
+// ── 6. Catálogos editables (aseguradoras, proveedores, patios) ──────────
+function Catalogos() {
+  const db = useDB()
+  const [aseg, setAseg] = useState<Aseguradora | 'nuevo' | null>(null)
+  const [prov, setProv] = useState<Proveedor | 'nuevo' | null>(null)
+  const [nuevoPatio, setNuevoPatio] = useState('')
+
+  return (
+    <>
+      <div className="grid-2 mb-6" style={{ marginBottom: 'var(--sp-6)' }}>
+        <div className="card card-pad">
+          <h3 className="section-title">Patios de trabajo</h3>
+          <p className="muted" style={{ fontSize: 'var(--fs-sm)', marginBottom: 'var(--sp-3)' }}>
+            Cada empleado no-global se asigna a uno de estos patios.
+          </p>
+          {db.config.patios.map((p) => (
+            <div key={p} className="row-between" style={{ padding: '6px 0', borderBottom: '1px solid var(--gray-100)' }}>
+              <span style={{ fontWeight: 600 }}>{p}</span>
+              <span className="muted" style={{ fontSize: 'var(--fs-xs)' }}>
+                {db.usuarios.filter((u) => u.patio === p).length} usuarios · {db.ordenes.filter((o) => o.patio === p).length} órdenes
+              </span>
+            </div>
+          ))}
+          <div className="row mt-4" style={{ marginTop: 'var(--sp-4)' }}>
+            <input placeholder="Nuevo patio…" value={nuevoPatio} onChange={(e) => setNuevoPatio(e.target.value)}
+              style={{ minHeight: 44, padding: '0 12px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius)', flex: 1 }} />
+            <button className="btn btn-accent" disabled={!nuevoPatio.trim() || db.config.patios.includes(nuevoPatio.trim())}
+              onClick={() => { update((d) => d.config.patios.push(nuevoPatio.trim())); setNuevoPatio('') }}>
+              <Icon name="plus" size={16} /> Agregar
+            </button>
+          </div>
+        </div>
+
+        <div className="card card-pad">
+          <div className="row-between mb-4" style={{ marginBottom: 'var(--sp-4)' }}>
+            <h3 className="section-title">Aseguradoras</h3>
+            <button className="btn btn-outline btn-sm" onClick={() => setAseg('nuevo')}><Icon name="plus" size={14} /> Agregar</button>
+          </div>
+          {db.aseguradoras.map((a) => (
+            <div key={a.id} className="row-between" style={{ padding: '6px 0', borderBottom: '1px solid var(--gray-100)' }}>
+              <span><strong>{a.clave}</strong> · {a.nombre}</span>
+              <button className="btn btn-ghost btn-sm" onClick={() => setAseg(a)}><Icon name="pen" size={13} /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card card-pad">
+        <div className="row-between mb-4" style={{ marginBottom: 'var(--sp-4)' }}>
+          <h3 className="section-title">Proveedores</h3>
+          <button className="btn btn-accent btn-sm" onClick={() => setProv('nuevo')}><Icon name="plus" size={14} /> Agregar proveedor</button>
+        </div>
+        <div className="table-wrap">
+          <table className="data">
+            <thead><tr><th>Proveedor</th><th>Giro</th><th>Teléfono</th><th>Días crédito</th><th></th></tr></thead>
+            <tbody>
+              {db.proveedores.map((pr) => (
+                <tr key={pr.id}>
+                  <td style={{ fontWeight: 600 }}>{pr.nombre}</td>
+                  <td><span className="badge badge-gray">{pr.giro}</span></td>
+                  <td>{pr.telefono ?? '—'}</td>
+                  <td>{pr.diasCredito} días</td>
+                  <td><button className="btn btn-ghost btn-sm" onClick={() => setProv(pr)}><Icon name="pen" size={13} /> Editar</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {aseg && <ModalAseguradora aseg={aseg === 'nuevo' ? null : aseg} onClose={() => setAseg(null)} />}
+      {prov && <ModalProveedor prov={prov === 'nuevo' ? null : prov} onClose={() => setProv(null)} />}
+    </>
+  )
+}
+
+function ModalAseguradora({ aseg, onClose }: { aseg: Aseguradora | null; onClose: () => void }) {
+  const [f, setF] = useState({ nombre: aseg?.nombre ?? '', clave: aseg?.clave ?? '' })
+  return (
+    <Modal title={aseg ? `Editar · ${aseg.clave}` : 'Nueva aseguradora'} onClose={onClose}>
+      <div className="grid-2">
+        <Field label="Nombre"><input value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></Field>
+        <Field label="Clave (corta)"><input value={f.clave} onChange={(e) => setF({ ...f, clave: e.target.value.toUpperCase() })} placeholder="QLTS" /></Field>
+      </div>
+      <div className="row-between mt-6">
+        <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+        <button className="btn btn-primary" disabled={!f.nombre || !f.clave} onClick={() => {
+          update((d) => {
+            if (aseg) Object.assign(d.aseguradoras.find((x) => x.id === aseg.id)!, f)
+            else d.aseguradoras.push({ id: uid(), nombre: f.nombre, clave: f.clave })
+          })
+          onClose()
+        }}><Icon name="check" size={16} /> Guardar</button>
+      </div>
+    </Modal>
+  )
+}
+
+function ModalProveedor({ prov, onClose }: { prov: Proveedor | null; onClose: () => void }) {
+  const [f, setF] = useState({
+    nombre: prov?.nombre ?? '', giro: prov?.giro ?? ('MATERIALES' as Proveedor['giro']),
+    telefono: prov?.telefono ?? '', diasCredito: prov?.diasCredito ?? 30,
+  })
+  return (
+    <Modal title={prov ? `Editar · ${prov.nombre}` : 'Nuevo proveedor'} onClose={onClose}>
+      <div className="grid-2">
+        <Field label="Nombre"><input value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></Field>
+        <Field label="Giro">
+          <select value={f.giro} onChange={(e) => setF({ ...f, giro: e.target.value as Proveedor['giro'] })}>
+            {['PINTURA', 'REFACCIONES', 'TOT', 'MATERIALES'].map((g) => <option key={g}>{g}</option>)}
+          </select>
+        </Field>
+        <Field label="Teléfono"><input value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} /></Field>
+        <Field label="Días de crédito"><input type="number" min={0} value={f.diasCredito} onChange={(e) => setF({ ...f, diasCredito: +e.target.value })} /></Field>
+      </div>
+      <div className="row-between mt-6">
+        <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+        <button className="btn btn-primary" disabled={!f.nombre} onClick={() => {
+          update((d) => {
+            if (prov) Object.assign(d.proveedores.find((x) => x.id === prov.id)!, { ...f, telefono: f.telefono || undefined })
+            else d.proveedores.push({ id: uid(), nombre: f.nombre, giro: f.giro, telefono: f.telefono || undefined, diasCredito: f.diasCredito })
+          })
+          onClose()
+        }}><Icon name="check" size={16} /> Guardar</button>
+      </div>
+    </Modal>
   )
 }

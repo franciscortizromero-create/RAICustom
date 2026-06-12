@@ -37,6 +37,8 @@ export interface ModuleDef {
   roles?: Rol[]
   /** Solo visible para roles globales (ADMIN/GERENTE); no asignable a otros. */
   soloGlobal?: boolean
+  /** Solo visible y editable por ADMIN (gobernanza del sistema). */
+  soloAdmin?: boolean
   kpi?: (db: DB, patio: string) => { text: string; tone: 'blue' | 'green' | 'yellow' | 'red' | 'gray' } | null
 }
 
@@ -46,6 +48,7 @@ export interface ModuleDef {
  * si no, se usa la lista `roles` por defecto del módulo.
  */
 export function puedeVerModulo(rol: Rol, m: ModuleDef, permisos?: PermisosConfig): boolean {
+  if (m.soloAdmin) return rol === 'ADMIN'
   if (ROLES_GLOBALES.includes(rol)) return true
   if (m.soloGlobal) return false
   const override = permisos?.modulos?.[rol]
@@ -163,8 +166,8 @@ export const MODULES: ModuleDef[] = [
   },
   {
     id: 'admin', path: '/admin', nombre: 'Administración', corto: 'Admin',
-    descripcion: 'Alta de personal, asignación de roles y patios, y permisos por módulo y por campo.',
-    icon: 'user', component: Admin, soloGlobal: true,
+    descripcion: 'Personal, roles, permisos, parámetros de negocio y catálogos. Solo Administrador.',
+    icon: 'user', component: Admin, soloAdmin: true,
     kpi: (db) => ({ text: `${db.usuarios.filter((u) => u.activo).length} usuarios`, tone: 'gray' }),
   },
 ]

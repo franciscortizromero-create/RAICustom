@@ -32,7 +32,7 @@ automáticamente y persisten en el navegador. Se restauran desde
 | **Garantías** | Reapertura con inventario nuevo, diagnóstico de procedencia, reproceso ligado a la orden original con los mismos técnicos. |
 | **Reportes y KPIs** | Ciclo de reparación, mezcla de aseguradoras, venta por área, cuellos de botella por etapa y órdenes más antiguas. |
 | **Catálogos** | Técnicos (con carga actual), proveedores, aseguradoras (QLTS, ABA, ATLAS, BBVA, SURA, WIBE, CHUBB), préstamos, folios y patios (AQUILES, P26, GPE P). |
-| **Administración** *(solo ADMIN/Gerente)* | Alta de personal con su rol y patio, matriz de acceso a módulos por rol, y editor de permisos por campo (Editar / Solo ver / Oculto). |
+| **Administración** *(solo ADMIN)* | Personal, roles, permisos por campo, **parámetros de negocio**, **% de productividad por etapa** y **catálogos** (aseguradoras, proveedores, patios) — todo editable. |
 
 ## Mejoras añadidas sin romper el flujo actual
 
@@ -120,6 +120,34 @@ lo que se define ahí **aplica en vivo** al resto del sistema:
 
    La capa es genérica: agregar un campo nuevo es una línea en `CAMPOS_PROTEGIDOS` y un
    chequeo `useAcceso()('id.campo')` donde se renderice. ADMIN y Gerente ven y editan todo.
+
+## Navegación: menú y buscador global
+
+El encabezado no lista los módulos: a la izquierda hay un **menú hamburguesa** que abre un
+drawer con los módulos visibles según el rol (e Inicio), y en el centro un **buscador global**.
+
+- **Buscador global** (`src/shell/GlobalSearch.tsx`): encuentra en un solo lugar órdenes,
+  vales, materiales, citas, facturas, contrarecibos, personal y proveedores. Atajo **Ctrl/⌘+K**,
+  navegación con flechas y Enter. Respeta el **patio** de la sesión y solo muestra resultados de
+  los **módulos que el rol puede ver**; cada resultado lleva a su pantalla.
+- En móvil, los selectores de Rol/Patio se mueven al pie del drawer para no saturar el encabezado.
+
+## Gobernanza: todo configurable, solo el Administrador edita
+
+El módulo **Administración** es exclusivo de **ADMIN** y centraliza la configuración, que se
+aplica en vivo al resto del sistema:
+
+- **Parámetros de negocio** — umbral de autorización de vales, umbral de anticipo de
+  particulares, checklist de inventario y folios siguientes. (Editar el umbral cambia de
+  inmediato la regla mostrada y aplicada en Vales.)
+- **Productividad %** — el porcentaje pagado por cada etapa (con su valor por defecto), que
+  alimenta el corte semanal.
+- **Catálogos** — aseguradoras, proveedores y patios con alta/edición.
+- Más lo ya existente: Personal (usuarios), Roles y módulos, y Permisos por campo.
+
+Todos estos valores viven en `db.parametros` / `db.config` / `db.permisos` y se consumen desde
+las reglas (`core/store.ts`, `core/productividad.ts`) y las pantallas, de modo que cambiarlos no
+requiere tocar código.
 
 ## Diseño
 

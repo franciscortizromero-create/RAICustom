@@ -60,6 +60,17 @@ export interface PermisosConfig {
   campos: Partial<Record<Rol, Record<string, Acceso>>>
 }
 
+/**
+ * Parámetros de negocio editables desde Administración (solo ADMIN).
+ * Centralizan las reglas que antes estaban "duras" en el código.
+ */
+export interface Parametros {
+  umbralAutorizacionVale: number // vales por encima requieren Gerente
+  umbralAnticipoParticular: number // refacciones particulares por encima piden anticipo
+  pctEtapa: Partial<Record<EtapaId, number>> // override del % de productividad por etapa
+  checklistInventario: string[] // ítems del checklist de inventario de ingreso
+}
+
 // Etapas de producción (flujo del taller). Las etapas con % generan
 // productividad para el técnico sobre el monto de venta del área.
 export type EtapaId =
@@ -365,5 +376,6 @@ export interface DB {
   pagosProductividad: PagoProductividad[]
   usuarios: Usuario[]
   permisos: PermisosConfig
+  parametros: Parametros
   config: { siguienteFolioOrden: number; siguienteFolioVale: number; siguienteFolioCR: number; torres: string[]; patios: string[] }
 }

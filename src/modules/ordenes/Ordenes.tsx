@@ -102,16 +102,11 @@ function Lista() {
 }
 
 // ── Wizard de recepción (digitaliza la orden + inventario + firmas) ─────
-const CHECKLIST_ITEMS = [
-  'Espejos laterales', 'Tapones de rueda', 'Antena', 'Gato y llave',
-  'Llanta refacción', 'Estéreo', 'Tapetes', 'Documentos en guantera',
-  'Encendedor', 'Extintor', 'Triángulos de seguridad',
-]
-
 function NuevaOrden() {
   const db = useDB()
   const nav = useNavigate()
   const { patio: patioSesion, global } = useScope()
+  const CHECKLIST_ITEMS = db.parametros.checklistInventario
   const [paso, setPaso] = useState(0)
   const [f, setF] = useState({
     tipoCliente: 'SEGURO' as 'SEGURO' | 'PARTICULAR',
