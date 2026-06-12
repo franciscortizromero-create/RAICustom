@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useDB, update, useRol, useScope } from '../../core/store'
+import { useDB, update, useRol, useScope, auditar } from '../../core/store'
 import { ETAPAS, etapaDef, type EtapaId, type Orden } from '../../core/types'
 import { cargaTecnico, pctDeEtapa } from '../../core/productividad'
 import { Icon, Modal, Field, PageHeader } from '../../core/ui'
@@ -123,6 +123,7 @@ function ModalOrden({ o, onClose, rol }: { o: Orden; onClose: () => void; rol: s
       ord.etapasLog.push({ etapa: o.etapa, fecha: hoyISO(), usuario: rol, tecnicoId: tecnicoEtapa })
       ord.etapa = destino
       if (ord.status === 'CITADO' || ord.status === 'ESPERA_REFACCIONES') ord.status = 'EN_PROCESO'
+      auditar(d, 'Taller', 'Etapa completada', `OT ${ord.folio} · ${actual.nombre} → ${etapaDef(destino).nombre}`)
     })
     onClose()
   }
@@ -138,6 +139,8 @@ function ModalOrden({ o, onClose, rol }: { o: Orden; onClose: () => void; rol: s
       if (anterior) {
         ord.asignacionLog.push({ fecha: hoyISO(), rol: reasignando, deId: anterior, aId: nuevoTec, motivo, usuario: rol })
       }
+      const nom = db.tecnicos.find((t) => t.id === nuevoTec)?.nombre ?? ''
+      auditar(d, 'Taller', anterior ? 'Técnico reasignado' : 'Técnico asignado', `OT ${ord.folio} · ${reasignando}: ${nom}${anterior ? ` · ${motivo}` : ''}`)
     })
     setReasignando(null)
     setNuevoTec('')

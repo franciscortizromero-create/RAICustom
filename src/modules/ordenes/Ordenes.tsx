@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react'
 import { Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
-import { useDB, update, useRol, useScope } from '../../core/store'
+import { useDB, update, useRol, useScope, auditar } from '../../core/store'
 import {
   ETAPAS, etapaDef, STATUS_LABEL, type Orden, type OrdenStatus, type LineaPresupuesto,
 } from '../../core/types'
 import { Icon, Modal, Field, PageHeader, StatusBadge, Empty } from '../../core/ui'
 import { useAcceso } from '../../core/permisos'
+import { exportarCSV } from '../../core/export'
 import { mxn, fechaCorta, fechaHora, hoyISO, diasDesde, uid } from '../../core/format'
 
 export default function Ordenes() {
@@ -47,7 +48,22 @@ function Lista() {
         title="Órdenes de Trabajo"
         sub={`Expediente digital de cada unidad${patio ? ` — patio ${patio}` : ' — los 3 patios'}`}
         actions={
-          <Link to="nueva" className="btn btn-accent"><Icon name="plus" size={18} />Nueva orden</Link>
+          <>
+            <button
+              className="btn btn-outline"
+              onClick={() => exportarCSV('ordenes-rai', rows.map((o) => ({
+                Folio: o.folio, Torre: o.torre, Ingreso: fechaCorta(o.fechaIngreso), Dias: diasDesde(o.fechaIngreso),
+                Marca: o.vehiculo.marca, Tipo: o.vehiculo.tipo, Modelo: o.vehiculo.modelo, Color: o.vehiculo.color, Placas: o.vehiculo.placas,
+                Cia: o.tipoCliente === 'PARTICULAR' ? 'PART' : db.aseguradoras.find((a) => a.id === o.aseguradoraId)?.clave ?? '',
+                Cliente: o.cliente.nombre, Valuador: o.valuador, Patio: o.patio,
+                Etapa: etapaDef(o.etapa).nombre, Estatus: STATUS_LABEL[o.status],
+                Venta: o.presupuesto.filter((l) => l.autorizada !== 'RECHAZADA').reduce((s, l) => s + l.venta, 0),
+              })))}
+            >
+              <Icon name="invoice" size={18} /> Exportar CSV
+            </button>
+            <Link to="nueva" className="btn btn-accent"><Icon name="plus" size={18} />Nueva orden</Link>
+          </>
         }
       />
       <div className="toolbar">
@@ -173,6 +189,7 @@ function NuevaOrden() {
         }],
         asignacionLog: [], etapasLog: [], presupuesto: [], refacciones: [],
       })
+      auditar(d, 'Órdenes', 'Orden creada', `OT ${folio} · ${f.marca.toUpperCase()} ${f.tipo.toUpperCase()} · ${f.tipoCliente === 'SEGURO' ? (db.aseguradoras.find((a) => a.id === f.aseguradoraId)?.clave ?? '') : 'Particular'}`)
     })
     nav('/ordenes')
   }
@@ -394,6 +411,7 @@ function Detalle() {
         ord.status = ord.refacciones.some((r) => !r.recibida) ? 'ESPERA_REFACCIONES' : 'EN_PROCESO'
         ord.autorizacionCliente = { fecha: hoyISO(), medio: ord.tipoCliente === 'SEGURO' ? 'PORTAL' : 'WHATSAPP' }
       }
+      auditar(d, 'Órdenes', 'Presupuesto autorizado', `OT ${ord.folio} · ${mxn(ord.presupuesto.filter((l) => l.autorizada !== 'RECHAZADA').reduce((s, l) => s + l.venta, 0))}`)
     })
 
   const marcarRefaccion = (i: number) =>
@@ -411,6 +429,7 @@ function Detalle() {
       ord.finiquitoFirmado = true
       ord.etapasLog.push({ etapa: 'ENTREGA', fecha: hoyISO(), usuario: rol })
       ord.etapa = 'ENTREGA'
+      auditar(d, 'Órdenes', 'Vehículo entregado', `OT ${ord.folio} · ${ord.cliente.nombre} · finiquito firmado`)
     })
 
   return (

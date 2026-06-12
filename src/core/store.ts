@@ -12,7 +12,7 @@ export interface StorageAdapter {
   save(db: DB): void
 }
 
-const KEY = 'rai-taller-360-db-v3'
+const KEY = 'rai-taller-360-db-v4'
 
 const localAdapter: StorageAdapter = {
   load() {
@@ -29,7 +29,18 @@ const localAdapter: StorageAdapter = {
 }
 
 let adapter: StorageAdapter = localAdapter
-let state: DB = adapter.load() ?? seedDB()
+
+// Migración defensiva: si se carga un estado de una versión previa al que le
+// falten claves nuevas (p.ej. `auditoria`), se completan desde la semilla.
+function migrar(db: DB): DB {
+  const base = seedDB()
+  for (const k of Object.keys(base) as (keyof DB)[]) {
+    if (db[k] === undefined) (db as unknown as Record<string, unknown>)[k] = base[k]
+  }
+  return db
+}
+
+let state: DB = migrar(adapter.load() ?? seedDB())
 adapter.save(state)
 
 const listeners = new Set<() => void>()
@@ -128,6 +139,24 @@ export function useScope() {
 /** Patio efectivo de un vale: el de su expediente, o el capturado en el vale. */
 export const patioDeVale = (db: DB, v: Vale): string | undefined =>
   db.ordenes.find((o) => o.id === v.ordenId)?.patio ?? v.patio
+
+/**
+ * Registra un evento en la bitácora de auditoría. Se llama dentro de un
+ * `update(d => { ...; auditar(d, ...) })`, tomando el rol/patio de la sesión.
+ */
+export function auditar(d: DB, modulo: string, accion: string, detalle: string) {
+  if (!d.auditoria) d.auditoria = []
+  d.auditoria.unshift({
+    id: Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
+    fecha: new Date().toISOString(),
+    usuarioRol: sesion.rol,
+    patio: sesion.patio,
+    modulo,
+    accion,
+    detalle,
+  })
+  if (d.auditoria.length > 800) d.auditoria.length = 800
+}
 
 // ── Reglas de negocio (del Formulario de procesos) ─────────────────────
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useDB, update, setSesion } from '../../core/store'
+import { useDB, update, setSesion, auditar } from '../../core/store'
 import { MODULES } from '../../core/registry'
 import { CAMPOS_PROTEGIDOS } from '../../core/permisos'
 import { ETAPAS } from '../../core/types'
@@ -8,9 +8,10 @@ import {
   type Proveedor, type Aseguradora,
 } from '../../core/types'
 import { Icon, Modal, Field, PageHeader, Empty } from '../../core/ui'
-import { mxn, fechaCorta, uid, hoyISO } from '../../core/format'
+import { exportarCSV } from '../../core/export'
+import { mxn, fechaCorta, fechaHora, uid, hoyISO } from '../../core/format'
 
-type Tab = 'personal' | 'modulos' | 'campos' | 'parametros' | 'productividad' | 'catalogos'
+type Tab = 'personal' | 'modulos' | 'campos' | 'parametros' | 'productividad' | 'catalogos' | 'bitacora'
 
 const ROLES: Rol[] = ['ADMIN', 'GERENTE', 'SUBGERENTE', 'JEFE_TALLER', 'VALUADOR', 'ASESOR', 'ALMACENISTA', 'RH', 'CONTADORA']
 const ROLES_EDITABLES = ROLES.filter((r) => !ROLES_GLOBALES.includes(r))
@@ -28,6 +29,7 @@ export default function Admin() {
     ['parametros', 'Parámetros', 'gauge'],
     ['productividad', 'Productividad %', 'chart'],
     ['catalogos', 'Catálogos', 'box'],
+    ['bitacora', 'Bitácora', 'history'],
   ]
   return (
     <>
@@ -52,6 +54,7 @@ export default function Admin() {
       {tab === 'parametros' && <Parametros />}
       {tab === 'productividad' && <ProductividadPct />}
       {tab === 'catalogos' && <Catalogos />}
+      {tab === 'bitacora' && <Bitacora />}
     </>
   )
 }
@@ -135,6 +138,7 @@ function ModalUsuario({ usuario, onClose }: { usuario: Usuario | null; onClose: 
           rol: f.rol, patio, activo: f.activo, ingreso: hoyISO(),
         })
       }
+      auditar(d, 'Administración', usuario ? 'Usuario editado' : 'Usuario dado de alta', `${f.nombre} · ${ROL_LABEL[f.rol]}${patio ? ` · ${patio}` : ''}`)
     })
     onClose()
   }
@@ -196,8 +200,11 @@ function RolesModulos() {
     update((d) => {
       // materializar la lista actual y alternar
       const actual = MODULOS_CONFIG.filter((m) => tiene(rol, m.id)).map((m) => m.id)
-      const next = actual.includes(modId) ? actual.filter((x) => x !== modId) : [...actual, modId]
+      const dio = !actual.includes(modId)
+      const next = dio ? [...actual, modId] : actual.filter((x) => x !== modId)
       d.permisos.modulos[rol] = next
+      const mod = MODULOS_CONFIG.find((m) => m.id === modId)
+      auditar(d, 'Administración', 'Acceso a módulo', `${ROL_LABEL[rol]} · ${mod?.nombre} → ${dio ? 'permitido' : 'bloqueado'}`)
     })
   }
 
@@ -264,6 +271,8 @@ function PermisosCampo() {
   const setAcceso = (campoId: string, valor: Acceso) =>
     update((d) => {
       d.permisos.campos[rol] = { ...(d.permisos.campos[rol] ?? {}), [campoId]: valor }
+      const campo = CAMPOS_PROTEGIDOS.find((c) => c.id === campoId)
+      auditar(d, 'Administración', 'Permiso por campo', `${ROL_LABEL[rol]} · ${campo?.nombre} → ${ACCESO_LABEL[valor]}`)
     })
 
   // Agrupar campos por módulo
@@ -352,7 +361,8 @@ function Parametros() {
           </p>
           <Field label="Umbral de autorización (MXN)">
             <input type="number" min={0} step={100} value={p.umbralAutorizacionVale}
-              onChange={(e) => setNum('umbralAutorizacionVale', +e.target.value)} />
+              onChange={(e) => setNum('umbralAutorizacionVale', +e.target.value)}
+              onBlur={(e) => update((d) => auditar(d, 'Administración', 'Parámetro cambiado', `Umbral de autorización de vales → ${mxn(+e.target.value)}`))} />
           </Field>
           <p className="muted mt-2" style={{ fontSize: 'var(--fs-xs)' }}>Actual: {mxn(p.umbralAutorizacionVale)}</p>
         </div>
@@ -363,7 +373,8 @@ function Parametros() {
           </p>
           <Field label="Umbral de anticipo (MXN)">
             <input type="number" min={0} step={100} value={p.umbralAnticipoParticular}
-              onChange={(e) => setNum('umbralAnticipoParticular', +e.target.value)} />
+              onChange={(e) => setNum('umbralAnticipoParticular', +e.target.value)}
+              onBlur={(e) => update((d) => auditar(d, 'Administración', 'Parámetro cambiado', `Umbral de anticipo de particulares → ${mxn(+e.target.value)}`))} />
           </Field>
           <p className="muted mt-2" style={{ fontSize: 'var(--fs-xs)' }}>Actual: {mxn(p.umbralAnticipoParticular)}</p>
         </div>
@@ -497,7 +508,7 @@ function Catalogos() {
             <input placeholder="Nuevo patio…" value={nuevoPatio} onChange={(e) => setNuevoPatio(e.target.value)}
               style={{ minHeight: 44, padding: '0 12px', border: '1px solid var(--gray-300)', borderRadius: 'var(--radius)', flex: 1 }} />
             <button className="btn btn-accent" disabled={!nuevoPatio.trim() || db.config.patios.includes(nuevoPatio.trim())}
-              onClick={() => { update((d) => d.config.patios.push(nuevoPatio.trim())); setNuevoPatio('') }}>
+              onClick={() => { const np = nuevoPatio.trim(); update((d) => { d.config.patios.push(np); auditar(d, 'Administración', 'Patio agregado', np) }); setNuevoPatio('') }}>
               <Icon name="plus" size={16} /> Agregar
             </button>
           </div>
@@ -560,6 +571,7 @@ function ModalAseguradora({ aseg, onClose }: { aseg: Aseguradora | null; onClose
           update((d) => {
             if (aseg) Object.assign(d.aseguradoras.find((x) => x.id === aseg.id)!, f)
             else d.aseguradoras.push({ id: uid(), nombre: f.nombre, clave: f.clave })
+            auditar(d, 'Administración', aseg ? 'Aseguradora editada' : 'Aseguradora agregada', `${f.clave} · ${f.nombre}`)
           })
           onClose()
         }}><Icon name="check" size={16} /> Guardar</button>
@@ -591,10 +603,79 @@ function ModalProveedor({ prov, onClose }: { prov: Proveedor | null; onClose: ()
           update((d) => {
             if (prov) Object.assign(d.proveedores.find((x) => x.id === prov.id)!, { ...f, telefono: f.telefono || undefined })
             else d.proveedores.push({ id: uid(), nombre: f.nombre, giro: f.giro, telefono: f.telefono || undefined, diasCredito: f.diasCredito })
+            auditar(d, 'Administración', prov ? 'Proveedor editado' : 'Proveedor agregado', `${f.nombre} · ${f.giro}`)
           })
           onClose()
         }}><Icon name="check" size={16} /> Guardar</button>
       </div>
     </Modal>
+  )
+}
+
+// ── 7. Bitácora de auditoría ────────────────────────────────────────────
+function Bitacora() {
+  const db = useDB()
+  const [modulo, setModulo] = useState('')
+  const [q, setQ] = useState('')
+
+  const auditoria = db.auditoria ?? []
+  const modulos = [...new Set(auditoria.map((a) => a.modulo))].sort()
+  const filas = auditoria
+    .filter((a) => !modulo || a.modulo === modulo)
+    .filter((a) => {
+      const t = q.trim().toLowerCase()
+      return !t || `${a.accion} ${a.detalle} ${ROL_LABEL[a.usuarioRol]}`.toLowerCase().includes(t)
+    })
+
+  return (
+    <>
+      <div className="card card-pad mb-6" style={{ marginBottom: 'var(--sp-6)', background: 'var(--rai-blue-50)', border: 'none' }}>
+        <p style={{ fontSize: 'var(--fs-sm)' }}>
+          Registro de acciones del sistema: autorizaciones, avances de etapa, entregas y cambios de
+          configuración. Trazabilidad de <strong>quién</strong> hizo <strong>qué</strong> y <strong>cuándo</strong>.
+        </p>
+      </div>
+      <div className="toolbar">
+        <div className="field" style={{ flex: 1, minWidth: 220 }}>
+          <label htmlFor="bit-q">Buscar</label>
+          <input id="bit-q" placeholder="Acción, detalle, rol…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <Field label="Módulo">
+          <select value={modulo} onChange={(e) => setModulo(e.target.value)}>
+            <option value="">Todos</option>
+            {modulos.map((m) => <option key={m}>{m}</option>)}
+          </select>
+        </Field>
+        <button
+          className="btn btn-outline"
+          onClick={() => exportarCSV('bitacora-rai', filas.map((a) => ({
+            Fecha: fechaHora(a.fecha), Rol: ROL_LABEL[a.usuarioRol], Patio: a.patio || 'Todos',
+            Modulo: a.modulo, Accion: a.accion, Detalle: a.detalle,
+          })))}
+        >
+          <Icon name="invoice" size={16} /> Exportar CSV
+        </button>
+      </div>
+      <div className="card table-wrap">
+        <table className="data">
+          <thead>
+            <tr><th>Fecha</th><th>Usuario (rol)</th><th>Patio</th><th>Módulo</th><th>Acción</th><th>Detalle</th></tr>
+          </thead>
+          <tbody>
+            {filas.map((a) => (
+              <tr key={a.id}>
+                <td style={{ whiteSpace: 'nowrap' }}>{fechaHora(a.fecha)}</td>
+                <td>{ROL_LABEL[a.usuarioRol]}</td>
+                <td>{a.patio || <span className="muted">Todos</span>}</td>
+                <td><span className="badge badge-gray">{a.modulo}</span></td>
+                <td style={{ fontWeight: 600 }}>{a.accion}</td>
+                <td className="muted">{a.detalle}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {filas.length === 0 && <Empty msg="Sin eventos en la bitácora con ese filtro." />}
+      </div>
+    </>
   )
 }

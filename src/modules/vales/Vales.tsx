@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { useDB, update, useRol, useScope, puedeAutorizarVale, patioDeVale } from '../../core/store'
+import { useDB, update, useRol, useScope, puedeAutorizarVale, patioDeVale, auditar } from '../../core/store'
 import { VALE_TIPO_LABEL, ROL_LABEL, type Vale, type ValeTipo } from '../../core/types'
 import { Icon, Modal, Field, PageHeader, ValeBadge, Empty } from '../../core/ui'
+import { exportarCSV } from '../../core/export'
 import { mxn, fechaCorta, hoyISO, uid } from '../../core/format'
 
 export default function Vales() {
@@ -28,16 +29,22 @@ export default function Vales() {
       x.status = 'AUTORIZADO'
       x.autorizadoPor = ROL_LABEL[rol]
       x.autorizadoRol = rol
+      auditar(d, 'Vales', 'Vale autorizado', `Vale #${x.folio} · ${VALE_TIPO_LABEL[x.tipo]} · ${mxn(x.monto)}`)
     })
 
   const rechazar = (v: Vale) =>
-    update((d) => { d.vales.find((y) => y.id === v.id)!.status = 'RECHAZADO' })
+    update((d) => {
+      const x = d.vales.find((y) => y.id === v.id)!
+      x.status = 'RECHAZADO'
+      auditar(d, 'Vales', 'Vale rechazado', `Vale #${x.folio} · ${mxn(x.monto)}`)
+    })
 
   const surtir = (v: Vale) =>
     update((d) => {
       const x = d.vales.find((y) => y.id === v.id)!
       x.status = 'SURTIDO'
       x.firmaProveedor = true
+      auditar(d, 'Vales', 'Vale surtido', `Vale #${x.folio} · ${mxn(x.monto)}`)
     })
 
   return (
@@ -45,7 +52,25 @@ export default function Vales() {
       <PageHeader
         title="Vales y Compras"
         sub="Folio automático, copia digital para el proveedor y reglas de autorización del taller"
-        actions={<button className="btn btn-accent" onClick={() => setNuevo(true)}><Icon name="plus" size={18} /> Nuevo vale</button>}
+        actions={
+          <>
+            <button
+              className="btn btn-outline"
+              onClick={() => exportarCSV('vales-rai', rows.map((v) => {
+                const o = db.ordenes.find((x) => x.id === v.ordenId)
+                return {
+                  Vale: v.folio, Tipo: VALE_TIPO_LABEL[v.tipo], OT: o?.folio ?? '', Torre: o?.torre ?? '',
+                  Proveedor: db.proveedores.find((p) => p.id === v.proveedorId)?.nombre ?? '',
+                  Descripcion: v.descripcion, Solicita: v.solicita, Fecha: fechaCorta(v.fecha),
+                  Monto: v.monto, Estado: v.status, Autorizo: v.autorizadoPor ?? '',
+                }
+              }))}
+            >
+              <Icon name="invoice" size={18} /> Exportar CSV
+            </button>
+            <button className="btn btn-accent" onClick={() => setNuevo(true)}><Icon name="plus" size={18} /> Nuevo vale</button>
+          </>
+        }
       />
       <div className="card card-pad mb-6" style={{ marginBottom: 'var(--sp-6)', background: 'var(--rai-blue-50)', border: 'none' }}>
         <p style={{ fontSize: 'var(--fs-sm)' }}>

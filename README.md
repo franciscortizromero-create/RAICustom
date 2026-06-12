@@ -121,6 +121,20 @@ lo que se define ahí **aplica en vivo** al resto del sistema:
    La capa es genérica: agregar un campo nuevo es una línea en `CAMPOS_PROTEGIDOS` y un
    chequeo `useAcceso()('id.campo')` donde se renderice. ADMIN y Gerente ven y editan todo.
 
+## Trazabilidad, exportación y notificaciones
+
+- **Bitácora de auditoría** (`core/store.ts` → `auditar`, visor en Administración → Bitácora,
+  solo ADMIN): registra quién hizo qué y cuándo — autorizaciones de vales, avances de etapa,
+  entregas, reasignaciones de técnico y todos los cambios de configuración. Filtros por módulo y
+  búsqueda, con exportación a CSV.
+- **Exportar a CSV/Excel** (`core/export.ts`): botón en Órdenes, Vales, Productividad y Bitácora;
+  respeta los filtros y el alcance por patio. CSV con BOM UTF-8 para abrir directo en Excel.
+- **Campana de notificaciones** en el encabezado (`shell/Notificaciones.tsx`): muestra el conteo
+  de alertas operativas del patio (vales por autorizar, material bajo mínimo, refacciones
+  vencidas, órdenes estancadas, garantías) y permite saltar a cada una desde cualquier pantalla.
+- **Migración defensiva** (`core/store.ts` → `migrar`): si se carga un estado de una versión
+  anterior al que le falten campos nuevos, se completan desde la semilla sin perder datos.
+
 ## Navegación: menú y buscador global
 
 El encabezado no lista los módulos: a la izquierda hay un **menú hamburguesa** que abre un

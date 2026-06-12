@@ -361,6 +361,17 @@ export interface PagoProductividad {
   firmaTecnico?: boolean
 }
 
+/** Entrada de la bitácora de auditoría del sistema. */
+export interface AuditEntry {
+  id: string
+  fecha: string
+  usuarioRol: Rol
+  patio: string
+  modulo: string
+  accion: string // verbo corto, p.ej. "Vale autorizado"
+  detalle: string
+}
+
 export interface DB {
   ordenes: Orden[]
   vales: Vale[]
@@ -377,5 +388,6 @@ export interface DB {
   usuarios: Usuario[]
   permisos: PermisosConfig
   parametros: Parametros
+  auditoria: AuditEntry[]
   config: { siguienteFolioOrden: number; siguienteFolioVale: number; siguienteFolioCR: number; torres: string[]; patios: string[] }
 }

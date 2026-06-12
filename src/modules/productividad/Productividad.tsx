@@ -3,6 +3,7 @@ import { useDB, useRol, useScope } from '../../core/store'
 import { etapaDef } from '../../core/types'
 import { lineasDeSemana, semanasDisponibles } from '../../core/productividad'
 import { Icon, Field, PageHeader, Stat, Empty, Modal } from '../../core/ui'
+import { exportarCSV } from '../../core/export'
 import { mxn, fechaCorta } from '../../core/format'
 
 export default function Productividad() {
@@ -42,6 +43,21 @@ export default function Productividad() {
       <PageHeader
         title="Productividad"
         sub="Corte semanal automático desde la bitácora de etapas — sin reportes manuales de los lunes"
+        actions={
+          <button
+            className="btn btn-outline"
+            disabled={porTecnico.length === 0}
+            onClick={() => exportarCSV(`productividad-${semana}`, porTecnico.flatMap(([tid, v]) => {
+              const t = db.tecnicos.find((x) => x.id === tid)
+              return v.lineas.map((l) => ({
+                Tecnico: t?.nombre ?? '', Rol: t?.rol ?? '', Patio: t?.patio ?? '',
+                OT: l.ordenFolio, Etapa: etapaDef(l.etapa).nombre, Base: l.base, Pct: l.pct, Monto: l.monto,
+              }))
+            }))}
+          >
+            <Icon name="invoice" size={18} /> Exportar CSV
+          </button>
+        }
       />
       <div className="card card-pad mb-6" style={{ marginBottom: 'var(--sp-6)', background: 'var(--rai-blue-50)', border: 'none' }}>
         <p style={{ fontSize: 'var(--fs-sm)' }}>

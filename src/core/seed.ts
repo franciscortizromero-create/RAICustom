@@ -349,6 +349,13 @@ const db: DB = {
   usuarios,
   permisos,
   parametros,
+  auditoria: [
+    { id: uid(), fecha: dAgo(0, 9), usuarioRol: 'GERENTE', patio: '', modulo: 'Vales', accion: 'Vale autorizado', detalle: 'Vale #4106 · Refacciones · $4,650 (Refaccionaria El Camino)' },
+    { id: uid(), fecha: dAgo(0, 8), usuarioRol: 'JEFE_TALLER', patio: 'AQUILES', modulo: 'Taller', accion: 'Etapa completada', detalle: 'OT 24215 · Pintura A · Preparación → Pintura B' },
+    { id: uid(), fecha: dAgo(1, 17), usuarioRol: 'ADMIN', patio: '', modulo: 'Administración', accion: 'Permiso por campo', detalle: 'Valuador · Margen de utilidad → Oculto' },
+    { id: uid(), fecha: dAgo(1, 11), usuarioRol: 'VALUADOR', patio: 'AQUILES', modulo: 'Órdenes', accion: 'Orden creada', detalle: 'OT 24224 · VW Vento 2020 · Qualitas' },
+    { id: uid(), fecha: dAgo(2, 16), usuarioRol: 'CONTADORA', patio: '', modulo: 'Facturación', accion: 'Pago registrado', detalle: 'Factura B-10398 · $10,800 · Transferencia' },
+  ],
   config: {
     siguienteFolioOrden: 24226,
     siguienteFolioVale: 4107,

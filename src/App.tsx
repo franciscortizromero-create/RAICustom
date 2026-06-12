@@ -5,6 +5,7 @@ import { useSesion, setSesion, useDB, esRolGlobal } from './core/store'
 import { ROL_LABEL, type Rol } from './core/types'
 import { Icon, Empty } from './core/ui'
 import GlobalSearch from './shell/GlobalSearch'
+import Notificaciones from './shell/Notificaciones'
 import Home from './modules/home/Home'
 
 function SinAcceso({ nombre }: { nombre: string }) {
@@ -97,6 +98,7 @@ export default function App() {
             <span>Taller&nbsp;360</span>
           </Link>
           <GlobalSearch />
+          <Notificaciones />
           <div className="topbar-session">
             <SessionControls />
           </div>
