@@ -25,7 +25,7 @@ export default function Garantias() {
           <tbody>
             {activas.map((o) => (
               <tr key={o.id}>
-                <td style={{ fontWeight: 700, color: 'var(--rai-blue-700)' }}>{o.folio}</td>
+                <td style={{ fontWeight: 700, color: 'var(--ink-brand)' }}>{o.folio}</td>
                 <td>{o.garantiaDe ?? '—'}</td>
                 <td>{o.vehiculo.marca} {o.vehiculo.tipo} · {o.vehiculo.placas}</td>
                 <td>{o.cliente.nombre}</td>

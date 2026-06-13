@@ -347,6 +347,15 @@ const db: DB = {
   ],
   pagosProductividad: [],
   usuarios,
+  rolesCustom: [
+    {
+      id: 'rc_recepcion',
+      nombre: 'Recepcionista',
+      base: 'ASESOR',
+      modulos: ['ordenes', 'citas'],
+      campos: { 'ordenes.costos': 'OCULTO', 'ordenes.margen': 'OCULTO', 'ordenes.presupuesto': 'VER' },
+    },
+  ],
   permisos,
   parametros,
   auditoria: [

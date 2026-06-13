@@ -64,7 +64,7 @@ export default function Taller() {
                     onClick={() => setSel(o.id)}
                   >
                     <div className="row-between">
-                      <strong style={{ color: 'var(--rai-blue-700)' }}>{o.folio}</strong>
+                      <strong style={{ color: 'var(--ink-brand)' }}>{o.folio}</strong>
                       <span className="badge badge-gray">{o.torre}</span>
                     </div>
                     <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600 }}>

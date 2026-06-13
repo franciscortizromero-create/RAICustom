@@ -37,6 +37,19 @@ export const ACCESO_LABEL: Record<Acceso, string> = {
   OCULTO: 'Oculto',
 }
 
+/**
+ * Rol personalizado creado por el ADMIN. Hereda las reglas de negocio
+ * (autorizaciones, alcance de patios) de su rol base, pero define su propia
+ * lista de módulos y permisos por campo.
+ */
+export interface RolCustom {
+  id: string
+  nombre: string
+  base: Rol
+  modulos: string[]
+  campos: Record<string, Acceso>
+}
+
 /** Empleado con acceso al sistema (cuenta de usuario). */
 export interface Usuario {
   id: string
@@ -44,6 +57,7 @@ export interface Usuario {
   email?: string
   telefono?: string
   rol: Rol
+  rolCustomId?: string // si tiene un rol personalizado, manda sobre los permisos
   patio: string // '' = todos los patios (solo roles globales)
   activo: boolean
   ingreso: string // fecha de alta
@@ -386,6 +400,7 @@ export interface DB {
   facturas: Factura[]
   pagosProductividad: PagoProductividad[]
   usuarios: Usuario[]
+  rolesCustom: RolCustom[]
   permisos: PermisosConfig
   parametros: Parametros
   auditoria: AuditEntry[]

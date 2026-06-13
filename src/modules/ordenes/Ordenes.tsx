@@ -96,7 +96,7 @@ function Lista() {
           <tbody>
             {rows.map((o) => (
               <tr key={o.id} className="clickable" onClick={() => nav(o.id)}>
-                <td style={{ fontWeight: 700, color: 'var(--rai-blue-700)' }}>{o.folio}</td>
+                <td style={{ fontWeight: 700, color: 'var(--ink-brand)' }}>{o.folio}</td>
                 <td>{o.torre}</td>
                 <td>{o.vehiculo.marca} {o.vehiculo.tipo} {o.vehiculo.modelo} · {o.vehiculo.color}</td>
                 <td>{o.vehiculo.placas}</td>
@@ -525,6 +525,11 @@ function Detalle() {
         </div>
       </div>
 
+      <div className="card mb-6" style={{ marginBottom: 'var(--sp-6)', padding: 'var(--sp-4) var(--sp-4) var(--sp-2)' }}>
+        <h3 className="section-title" style={{ padding: '0 var(--sp-2)' }}>Avance de la reparación</h3>
+        <LineaDeTiempo o={o} />
+      </div>
+
       <div className="card card-pad mb-6" style={{ marginBottom: 'var(--sp-6)' }}>
         <div className="row-between mb-4" style={{ marginBottom: 'var(--sp-4)' }}>
           <h3 className="section-title">Presupuesto / Valuación</h3>
@@ -568,7 +573,7 @@ function Detalle() {
                 <tr style={{ fontWeight: 800 }}>
                   <td colSpan={3}>Totales (sin rechazadas)</td>
                   {verCostos && <td>{mxn(totalCosto)}</td>}
-                  <td style={{ color: 'var(--rai-blue-700)' }}>{mxn(totalVenta)}</td>
+                  <td style={{ color: 'var(--ink-brand)' }}>{mxn(totalVenta)}</td>
                   <td>{verMargen && totalVenta > 0 && <span className="muted">margen {Math.round(((totalVenta - totalCosto) / totalVenta) * 100)}%</span>}</td>
                 </tr>
               )}
@@ -624,6 +629,37 @@ function Detalle() {
 
       {modalLinea && <ModalLinea ordenId={o.id} onClose={() => setModalLinea(false)} />}
     </>
+  )
+}
+
+/**
+ * Línea de tiempo del expediente: etapas completadas (con fecha y técnico),
+ * etapa actual resaltada y etapas futuras atenuadas.
+ */
+function LineaDeTiempo({ o }: { o: Orden }) {
+  const db = useDB()
+  const idxActual = ETAPAS.findIndex((e) => e.id === o.etapa)
+  const terminada = ['ENTREGADO', 'FACTURADO', 'PAGADO'].includes(o.status)
+  return (
+    <div className="timeline" role="list" aria-label="Avance de etapas">
+      {ETAPAS.map((et, i) => {
+        const log = [...o.etapasLog].reverse().find((l) => l.etapa === et.id)
+        const done = !!log || i < idxActual || (terminada && i <= idxActual)
+        const current = !terminada && i === idxActual
+        const tec = log?.tecnicoId ? db.tecnicos.find((t) => t.id === log.tecnicoId)?.nombre.split(' ')[0] : undefined
+        return (
+          <div key={et.id} role="listitem" className={`tl-step ${done ? 'done' : ''} ${current ? 'current' : ''}`}
+            aria-current={current ? 'step' : undefined}>
+            <span className="tl-dot">
+              {done ? <Icon name="check" size={14} /> : current ? <Icon name="wrench" size={13} /> : null}
+            </span>
+            <span className="tl-name">{et.nombre}</span>
+            {log && <span className="tl-meta">{fechaCorta(log.fecha)}{tec ? ` · ${tec}` : ''}</span>}
+            {current && !log && <span className="tl-meta">en proceso</span>}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 

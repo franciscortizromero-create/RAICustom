@@ -80,7 +80,7 @@ export default function CuentasPorPagar() {
               const vencido = c.estado !== 'PAGADO' && new Date(c.fechaVencimiento) < new Date()
               return (
                 <tr key={c.id}>
-                  <td style={{ fontWeight: 700, color: 'var(--rai-blue-700)' }}>CR-{c.folio}</td>
+                  <td style={{ fontWeight: 700, color: 'var(--ink-brand)' }}>CR-{c.folio}</td>
                   <td>{prov?.nombre}<div className="muted" style={{ fontSize: 'var(--fs-xs)' }}>{prov?.diasCredito} días crédito</div></td>
                   <td>{fechaCorta(c.fecha)}</td>
                   <td>

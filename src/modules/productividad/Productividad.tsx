@@ -4,6 +4,7 @@ import { etapaDef } from '../../core/types'
 import { lineasDeSemana, semanasDisponibles } from '../../core/productividad'
 import { Icon, Field, PageHeader, Stat, Empty, Modal } from '../../core/ui'
 import { exportarCSV } from '../../core/export'
+import { imprimir } from '../../core/print'
 import { mxn, fechaCorta } from '../../core/format'
 
 export default function Productividad() {
@@ -136,7 +137,7 @@ export default function Productividad() {
                         <td>-{mxn(descuento)}</td>
                       </tr>
                     )}
-                    <tr style={{ fontWeight: 800, color: 'var(--rai-blue-700)' }}>
+                    <tr style={{ fontWeight: 800, color: 'var(--ink-brand)' }}>
                       <td colSpan={4}>Neto a pagar</td><td>{mxn(v.bruto - descuento)}</td>
                     </tr>
                   </tbody>
@@ -194,8 +195,38 @@ function ReciboModal({
         </table>
         <div className="row mt-6" style={{ marginTop: 'var(--sp-6)', justifyContent: 'space-between' }}>
           <span className="muted">Firma del técnico: ______________________</span>
-          <button className="btn btn-primary btn-sm" onClick={() => window.print()}>
-            <Icon name="invoice" size={14} /> Imprimir
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() =>
+              imprimir(
+                `Recibo de productividad · ${t?.nombre}`,
+                `
+                <div class="grid">
+                  <div><div class="lbl">Técnico</div><div class="val">${t?.nombre ?? ''}</div></div>
+                  <div><div class="lbl">Puesto / Patio</div><div class="val">${t?.rol ?? ''} · ${t?.patio ?? ''}</div></div>
+                  <div><div class="lbl">Semana</div><div class="val">Corte ${fechaCorta(semana)}</div></div>
+                  <div><div class="lbl">Etapas pagadas</div><div class="val">${lineas.length}</div></div>
+                </div>
+                <table>
+                  <thead><tr><th>OT</th><th>Etapa</th><th style="text-align:right">Base venta</th><th style="text-align:right">%</th><th style="text-align:right">Monto</th></tr></thead>
+                  <tbody>
+                    ${lineas.map((l) => `<tr><td>${l.ordenFolio}</td><td>${etapaDef(l.etapa as never).nombre}</td><td style="text-align:right">${mxn(l.base)}</td><td style="text-align:right">${l.pct}%</td><td style="text-align:right">${mxn(l.monto)}</td></tr>`).join('')}
+                    <tr><td colspan="4" style="font-weight:700">Bruto</td><td style="text-align:right;font-weight:700">${mxn(bruto)}</td></tr>
+                    ${descuento > 0 ? `<tr><td colspan="4">Descuento de préstamo (saldo ${mxn(prestamo!.saldo)})</td><td style="text-align:right">-${mxn(descuento)}</td></tr>` : ''}
+                  </tbody>
+                </table>
+                <div class="total">Neto a pagar: ${mxn(bruto - descuento)}</div>
+                <div class="firmas">
+                  <div>Firma del técnico</div>
+                  <div>Firma de RH / Gerencia</div>
+                </div>
+                `,
+                'Recibo de productividad',
+                fechaCorta(semana),
+              )
+            }
+          >
+            <Icon name="invoice" size={14} /> Imprimir / PDF
           </button>
         </div>
       </div>

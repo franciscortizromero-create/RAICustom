@@ -18,9 +18,9 @@ function saludo() {
 
 export default function Home() {
   const db = useDB()
-  const { rol, patio, global, enScope } = useScope()
+  const { rol, custom, label, patio, global, enScope } = useScope()
   const avisos = alertas(db, patio)
-  const visibles = modulosPara(rol, db.permisos)
+  const visibles = modulosPara(rol, db.permisos, custom)
 
   const misOrdenes = db.ordenes.filter((o) => enScope(o.patio))
   const enPiso = misOrdenes.filter((o) => ['EN_PROCESO', 'GARANTIA'].includes(o.status)).length
@@ -38,7 +38,7 @@ export default function Home() {
         <p style={{ fontWeight: 700, color: 'var(--rai-yellow-400)', letterSpacing: '0.08em', fontSize: 'var(--fs-xs)', textTransform: 'uppercase' }}>
           Hojalatería y Pintura · Aguascalientes
         </p>
-        <h1>{saludo()}, {ROL_LABEL[rol]}</h1>
+        <h1>{saludo()}, {label}</h1>
         <p>
           {patio
             ? <>Estás viendo la operación del patio <strong style={{ color: 'var(--rai-yellow-400)' }}>{patio}</strong>.</>
@@ -92,7 +92,7 @@ export default function Home() {
       <div className="row-between" style={{ marginBottom: 'var(--sp-4)' }}>
         <h2 className="section-title">Módulos</h2>
         {!global && (
-          <span className="badge badge-navy">Acceso: {ROL_LABEL[rol]} · patio {patio}</span>
+          <span className="badge badge-navy">Acceso: {label} · patio {patio}</span>
         )}
       </div>
       <div className="springboard">

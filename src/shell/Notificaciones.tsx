@@ -39,11 +39,11 @@ export default function Notificaciones() {
       {abierto && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 340, maxWidth: '90vw',
-          background: '#fff', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)',
+          background: 'var(--surface)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)',
           border: '1px solid var(--gray-200)', zIndex: 80, overflow: 'hidden',
         }}>
           <div className="row-between" style={{ padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--gray-200)' }}>
-            <strong style={{ color: 'var(--rai-blue-900)' }}>Atención{patio ? ` · ${patio}` : ''}</strong>
+            <strong style={{ color: 'var(--text-strong)' }}>Atención{patio ? ` · ${patio}` : ''}</strong>
             <span className="badge badge-gray">{avisos.length}</span>
           </div>
           {avisos.length === 0 && (

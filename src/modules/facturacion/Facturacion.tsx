@@ -51,7 +51,7 @@ export default function Facturacion() {
               const o = db.ordenes.find((x) => x.id === f.ordenId)
               return (
                 <tr key={f.id}>
-                  <td style={{ fontWeight: 700, color: 'var(--rai-blue-700)' }}>{f.folio}</td>
+                  <td style={{ fontWeight: 700, color: 'var(--ink-brand)' }}>{f.folio}</td>
                   <td>{o?.folio}</td>
                   <td>{f.cliente}</td>
                   <td>{fechaCorta(f.fecha)}</td>

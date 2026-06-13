@@ -5,7 +5,7 @@ import { CAMPOS_PROTEGIDOS } from '../../core/permisos'
 import { ETAPAS } from '../../core/types'
 import {
   ROL_LABEL, ROLES_GLOBALES, ACCESO_LABEL, type Rol, type Acceso, type Usuario,
-  type Proveedor, type Aseguradora,
+  type Proveedor, type Aseguradora, type RolCustom,
 } from '../../core/types'
 import { Icon, Modal, Field, PageHeader, Empty } from '../../core/ui'
 import { exportarCSV } from '../../core/export'
@@ -85,7 +85,12 @@ function Personal() {
               <tr key={u.id}>
                 <td style={{ fontWeight: 600 }}>{u.nombre}</td>
                 <td className="muted" style={{ fontSize: 'var(--fs-xs)' }}>{u.email ?? '—'}{u.telefono ? ` · ${u.telefono}` : ''}</td>
-                <td><span className="badge badge-navy">{ROL_LABEL[u.rol]}</span></td>
+                <td>
+                  <span className="badge badge-navy">
+                    {u.rolCustomId ? db.rolesCustom.find((r) => r.id === u.rolCustomId)?.nombre ?? ROL_LABEL[u.rol] : ROL_LABEL[u.rol]}
+                  </span>
+                  {u.rolCustomId && <div className="muted" style={{ fontSize: 'var(--fs-xs)' }}>base {ROL_LABEL[u.rol]}</div>}
+                </td>
                 <td>{ROLES_GLOBALES.includes(u.rol) ? <span className="badge badge-yellow">3 patios</span> : u.patio}</td>
                 <td>{fechaCorta(u.ingreso)}</td>
                 <td>
@@ -98,7 +103,7 @@ function Personal() {
                     </button>
                     <button
                       className="btn btn-ghost btn-sm"
-                      onClick={() => setSesion({ rol: u.rol, patio: u.patio })}
+                      onClick={() => setSesion({ rol: u.rol, rolCustomId: u.rolCustomId, patio: u.patio })}
                       title="Ver el sistema como lo vería este usuario"
                     >
                       Entrar como
@@ -120,25 +125,29 @@ function ModalUsuario({ usuario, onClose }: { usuario: Usuario | null; onClose: 
   const db = useDB()
   const [f, setF] = useState({
     nombre: usuario?.nombre ?? '', email: usuario?.email ?? '', telefono: usuario?.telefono ?? '',
-    rol: usuario?.rol ?? ('ASESOR' as Rol), patio: usuario?.patio ?? db.config.patios[0],
+    rolSel: usuario?.rolCustomId ? `custom:${usuario.rolCustomId}` : (usuario?.rol ?? 'ASESOR'),
+    patio: usuario?.patio ?? db.config.patios[0],
     activo: usuario?.activo ?? true,
   })
-  const global = ROLES_GLOBALES.includes(f.rol)
+  const custom = f.rolSel.startsWith('custom:') ? db.rolesCustom.find((r) => r.id === f.rolSel.slice(7)) : undefined
+  const rolBase: Rol = custom ? custom.base : (f.rolSel as Rol)
+  const etiquetaRol = custom ? custom.nombre : ROL_LABEL[rolBase]
+  const global = ROLES_GLOBALES.includes(rolBase)
   const set = (k: string, v: unknown) => setF((p) => ({ ...p, [k]: v }))
 
   const guardar = () => {
     const patio = global ? '' : f.patio
     update((d) => {
-      if (usuario) {
-        const u = d.usuarios.find((x) => x.id === usuario.id)!
-        Object.assign(u, { nombre: f.nombre, email: f.email || undefined, telefono: f.telefono || undefined, rol: f.rol, patio, activo: f.activo })
-      } else {
-        d.usuarios.push({
-          id: uid(), nombre: f.nombre, email: f.email || undefined, telefono: f.telefono || undefined,
-          rol: f.rol, patio, activo: f.activo, ingreso: hoyISO(),
-        })
+      const datos = {
+        nombre: f.nombre, email: f.email || undefined, telefono: f.telefono || undefined,
+        rol: rolBase, rolCustomId: custom?.id, patio, activo: f.activo,
       }
-      auditar(d, 'Administración', usuario ? 'Usuario editado' : 'Usuario dado de alta', `${f.nombre} · ${ROL_LABEL[f.rol]}${patio ? ` · ${patio}` : ''}`)
+      if (usuario) {
+        Object.assign(d.usuarios.find((x) => x.id === usuario.id)!, datos)
+      } else {
+        d.usuarios.push({ id: uid(), ...datos, ingreso: hoyISO() })
+      }
+      auditar(d, 'Administración', usuario ? 'Usuario editado' : 'Usuario dado de alta', `${f.nombre} · ${etiquetaRol}${patio ? ` · ${patio}` : ''}`)
     })
     onClose()
   }
@@ -156,8 +165,13 @@ function ModalUsuario({ usuario, onClose }: { usuario: Usuario | null; onClose: 
           <input value={f.telefono} onChange={(e) => set('telefono', e.target.value)} placeholder="449 …" />
         </Field>
         <Field label="Rol">
-          <select value={f.rol} onChange={(e) => set('rol', e.target.value)}>
+          <select value={f.rolSel} onChange={(e) => set('rolSel', e.target.value)}>
             {ROLES.map((r) => <option key={r} value={r}>{ROL_LABEL[r]}</option>)}
+            {db.rolesCustom.length > 0 && (
+              <optgroup label="Roles personalizados">
+                {db.rolesCustom.map((r) => <option key={r.id} value={`custom:${r.id}`}>{r.nombre}</option>)}
+              </optgroup>
+            )}
           </select>
         </Field>
         <Field label={global ? 'Patio (rol global: ve los 3 patios)' : 'Patio asignado'}>
@@ -252,7 +266,157 @@ function RolesModulos() {
           </tbody>
         </table>
       </div>
+      <RolesCustomSection />
     </>
+  )
+}
+
+// ── 2b. Roles personalizados ────────────────────────────────────────────
+function RolesCustomSection() {
+  const db = useDB()
+  const [editar, setEditar] = useState<RolCustom | 'nuevo' | null>(null)
+
+  const eliminar = (rc: RolCustom) => {
+    const enUso = db.usuarios.filter((u) => u.rolCustomId === rc.id).length
+    if (enUso > 0) {
+      alert(`No se puede eliminar: ${enUso} usuario(s) tienen asignado el rol "${rc.nombre}". Reasígnalos primero.`)
+      return
+    }
+    if (!confirm(`¿Eliminar el rol personalizado "${rc.nombre}"?`)) return
+    update((d) => {
+      d.rolesCustom = d.rolesCustom.filter((x) => x.id !== rc.id)
+      auditar(d, 'Administración', 'Rol personalizado eliminado', rc.nombre)
+    })
+  }
+
+  return (
+    <div className="card card-pad mt-6" style={{ marginTop: 'var(--sp-6)' }}>
+      <div className="row-between mb-4" style={{ marginBottom: 'var(--sp-4)' }}>
+        <div>
+          <h3 className="section-title">Roles personalizados</h3>
+          <p className="muted" style={{ fontSize: 'var(--fs-sm)' }}>
+            Crea puestos a la medida: heredan las reglas de negocio de un rol base, pero con sus
+            propios módulos y permisos por campo.
+          </p>
+        </div>
+        <button className="btn btn-accent" onClick={() => setEditar('nuevo')}>
+          <Icon name="plus" size={16} /> Crear rol
+        </button>
+      </div>
+      {db.rolesCustom.length === 0 && <p className="muted">Sin roles personalizados.</p>}
+      {db.rolesCustom.map((rc) => (
+        <div key={rc.id} className="row-between" style={{ padding: 'var(--sp-3) 0', borderBottom: '1px solid var(--gray-100)', gap: 'var(--sp-3)' }}>
+          <div style={{ flex: 1 }}>
+            <div className="row" style={{ gap: 8 }}>
+              <strong>{rc.nombre}</strong>
+              <span className="badge badge-navy">base: {ROL_LABEL[rc.base]}</span>
+              <span className="badge badge-gray">{db.usuarios.filter((u) => u.rolCustomId === rc.id).length} usuario(s)</span>
+            </div>
+            <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 4 }}>
+              Módulos: {rc.modulos.map((id) => MODULES.find((m) => m.id === id)?.corto ?? id).join(', ') || '—'}
+              {Object.keys(rc.campos).length > 0 && ` · ${Object.keys(rc.campos).length} permiso(s) de campo propios`}
+            </div>
+          </div>
+          <div className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+            <button className="btn btn-outline btn-sm" onClick={() => setEditar(rc)}><Icon name="pen" size={13} /> Editar</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setSesion({ rol: rc.base, rolCustomId: rc.id })}>Entrar como</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => eliminar(rc)} aria-label={`Eliminar ${rc.nombre}`}><Icon name="x" size={14} /></button>
+          </div>
+        </div>
+      ))}
+      {editar && <ModalRolCustom rc={editar === 'nuevo' ? null : editar} onClose={() => setEditar(null)} />}
+    </div>
+  )
+}
+
+function ModalRolCustom({ rc, onClose }: { rc: RolCustom | null; onClose: () => void }) {
+  const [f, setF] = useState({
+    nombre: rc?.nombre ?? '',
+    base: rc?.base ?? ('ASESOR' as Rol),
+    modulos: rc?.modulos ?? ['ordenes'],
+    campos: { ...(rc?.campos ?? {}) } as Record<string, Acceso>,
+  })
+  const MODULOS_CONFIG = modulosConfig()
+
+  const toggleModulo = (id: string) =>
+    setF((p) => ({ ...p, modulos: p.modulos.includes(id) ? p.modulos.filter((x) => x !== id) : [...p.modulos, id] }))
+
+  const guardar = () => {
+    update((d) => {
+      if (rc) {
+        Object.assign(d.rolesCustom.find((x) => x.id === rc.id)!, f)
+      } else {
+        d.rolesCustom.push({ id: uid(), ...f })
+      }
+      auditar(d, 'Administración', rc ? 'Rol personalizado editado' : 'Rol personalizado creado', `${f.nombre} (base ${ROL_LABEL[f.base]})`)
+    })
+    onClose()
+  }
+
+  return (
+    <Modal title={rc ? `Editar rol · ${rc.nombre}` : 'Crear rol personalizado'} onClose={onClose} wide>
+      <div className="grid-2">
+        <Field label="Nombre del rol">
+          <input value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} placeholder="Recepcionista, Auxiliar de patio…" />
+        </Field>
+        <Field label="Rol base (hereda reglas de negocio y alcance de patios)">
+          <select value={f.base} onChange={(e) => setF({ ...f, base: e.target.value as Rol })}>
+            {ROLES.filter((r) => r !== 'ADMIN').map((r) => <option key={r} value={r}>{ROL_LABEL[r]}</option>)}
+          </select>
+        </Field>
+      </div>
+
+      <h4 className="section-title mt-6" style={{ marginTop: 'var(--sp-6)', fontSize: 'var(--fs-md)' }}>Módulos con acceso</h4>
+      <div className="grid-3 mt-2" style={{ marginTop: 'var(--sp-2)' }}>
+        {MODULOS_CONFIG.map((m) => (
+          <label key={m.id} className="row" style={{ gap: 8, minHeight: 40, cursor: 'pointer' }}>
+            <input
+              type="checkbox" checked={f.modulos.includes(m.id)} onChange={() => toggleModulo(m.id)}
+              style={{ width: 18, height: 18 }}
+            />
+            <span style={{ fontSize: 'var(--fs-sm)' }}>{m.nombre}</span>
+          </label>
+        ))}
+      </div>
+
+      <h4 className="section-title mt-6" style={{ marginTop: 'var(--sp-6)', fontSize: 'var(--fs-md)' }}>Permisos por campo</h4>
+      <p className="muted" style={{ fontSize: 'var(--fs-xs)' }}>Si no defines un campo, hereda lo configurado para el rol base.</p>
+      {CAMPOS_PROTEGIDOS.map((c) => {
+        const valor = f.campos[c.id]
+        return (
+          <div key={c.id} className="row-between" style={{ padding: 'var(--sp-2) 0', borderBottom: '1px solid var(--gray-100)', gap: 'var(--sp-3)' }}>
+            <span style={{ fontSize: 'var(--fs-sm)', flex: 1 }}>{c.nombre}</span>
+            <div className="row" style={{ gap: 4 }}>
+              <button
+                className={`btn btn-sm ${valor === undefined ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setF((p) => { const cs = { ...p.campos }; delete cs[c.id]; return { ...p, campos: cs } })}
+              >
+                Heredar
+              </button>
+              {ACCESOS.map((a) => (
+                <button
+                  key={a}
+                  className={`btn btn-sm ${valor === a ? '' : 'btn-ghost'}`}
+                  style={valor === a
+                    ? { background: a === 'EDITAR' ? 'var(--ok-600)' : a === 'VER' ? 'var(--warn-700)' : 'var(--danger-600)', color: '#fff' }
+                    : undefined}
+                  onClick={() => setF((p) => ({ ...p, campos: { ...p.campos, [c.id]: a } }))}
+                >
+                  {ACCESO_LABEL[a]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+
+      <div className="row-between mt-6">
+        <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+        <button className="btn btn-primary" disabled={!f.nombre.trim() || f.modulos.length === 0} onClick={guardar}>
+          <Icon name="check" size={16} /> {rc ? 'Guardar cambios' : 'Crear rol'}
+        </button>
+      </div>
+    </Modal>
   )
 }
 

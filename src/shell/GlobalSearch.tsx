@@ -138,7 +138,7 @@ function buscar(
 
 export default function GlobalSearch() {
   const db = useDB()
-  const { rol, enScope } = useScope()
+  const { rol, custom, enScope } = useScope()
   const nav = useNavigate()
   const [q, setQ] = useState('')
   const [abierto, setAbierto] = useState(false)
@@ -146,7 +146,7 @@ export default function GlobalSearch() {
   const inputRef = useRef<HTMLInputElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
-  const modIds = useMemo(() => new Set(modulosPara(rol, db.permisos).map((m) => m.id)), [rol, db.permisos])
+  const modIds = useMemo(() => new Set(modulosPara(rol, db.permisos, custom).map((m) => m.id)), [rol, db.permisos, custom])
   const hits = useMemo(() => buscar(db, enScope, modIds, q), [db, q, modIds])
 
   // Ctrl/Cmd+K enfoca el buscador

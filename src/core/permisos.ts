@@ -1,6 +1,6 @@
-import type { DB, Rol, Acceso } from './types'
+import type { DB, Rol, Acceso, RolCustom } from './types'
 import { ROLES_GLOBALES } from './types'
-import { useDB, useRol } from './store'
+import { useDB, useSesion, rolCustomActivo } from './store'
 
 // ── Permisos por campo ──────────────────────────────────────────────────
 // Catálogo de campos/secciones protegibles dentro de cada módulo. El módulo
@@ -41,7 +41,13 @@ export const CAMPOS_PROTEGIDOS: CampoProtegido[] = [
 export const camposDeModulo = (moduloId: string) => CAMPOS_PROTEGIDOS.filter((c) => c.modulo === moduloId)
 
 /** Acceso efectivo de un rol a un campo protegido. */
-export function accesoCampo(db: DB, rol: Rol, campoId: string): Acceso {
+export function accesoCampo(db: DB, rol: Rol, campoId: string, custom?: RolCustom | null): Acceso {
+  if (custom) {
+    const propio = custom.campos[campoId]
+    if (propio) return propio
+    // hereda el override (y default) de su rol base
+    return accesoCampo(db, custom.base, campoId)
+  }
   if (ROLES_GLOBALES.includes(rol)) return 'EDITAR'
   const override = db.permisos?.campos?.[rol]?.[campoId]
   if (override) return override
@@ -51,6 +57,7 @@ export function accesoCampo(db: DB, rol: Rol, campoId: string): Acceso {
 /** Hook: devuelve una función acc(campoId) con el acceso del rol activo. */
 export function useAcceso() {
   const db = useDB()
-  const rol = useRol()
-  return (campoId: string): Acceso => accesoCampo(db, rol, campoId)
+  const s = useSesion()
+  const custom = rolCustomActivo(db, s)
+  return (campoId: string): Acceso => accesoCampo(db, s.rol, campoId, custom)
 }

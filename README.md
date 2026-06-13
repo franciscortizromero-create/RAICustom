@@ -121,6 +121,23 @@ lo que se define ahí **aplica en vivo** al resto del sistema:
    La capa es genérica: agregar un campo nuevo es una línea en `CAMPOS_PROTEGIDOS` y un
    chequeo `useAcceso()('id.campo')` donde se renderice. ADMIN y Gerente ven y editan todo.
 
+## Modo oscuro, roles personalizados, línea de tiempo e impresión
+
+- **Modo oscuro** — toggle sol/luna en el encabezado, persistente. El tema vive en variables
+  CSS semánticas (`--surface`, `--text-strong`, `--ink-brand` y escalas redefinidas en
+  `[data-theme='dark']`), manteniendo contraste AA y la identidad RAI.
+- **Roles personalizados** (Administración → Roles y módulos → Roles personalizados, solo
+  ADMIN): crea puestos a la medida (ej. "Recepcionista") con nombre propio, un **rol base**
+  del que heredan las reglas de negocio y el alcance de patios, su **propia lista de módulos**
+  y **permisos por campo** (o heredar del base). Asignables al personal y disponibles en el
+  selector de sesión y en "Entrar como".
+- **Línea de tiempo del expediente** — en el detalle de cada orden, un stepper visual de las
+  15 etapas: completadas con fecha y técnico, la actual resaltada en amarillo y las futuras
+  atenuadas.
+- **Impresión / PDF** (`core/print.ts`) — vales con el formato del vale físico de RAI
+  (membrete, proveedor, OT/torre/vehículo, firmas de autorización y recibido) y recibos de
+  productividad por técnico, vía el diálogo de impresión del navegador (Guardar como PDF).
+
 ## Trazabilidad, exportación y notificaciones
 
 - **Bitácora de auditoría** (`core/store.ts` → `auditar`, visor en Administración → Bitácora,

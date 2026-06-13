@@ -1,12 +1,36 @@
 import { useState } from 'react'
 import { Routes, Route, NavLink, Link, useLocation } from 'react-router-dom'
 import { MODULES, puedeVerModulo, modulosPara } from './core/registry'
-import { useSesion, setSesion, useDB, esRolGlobal } from './core/store'
+import { useSesion, setSesion, useDB, esRolGlobal, useTema, setTema, rolCustomActivo } from './core/store'
 import { ROL_LABEL, type Rol } from './core/types'
 import { Icon, Empty } from './core/ui'
 import GlobalSearch from './shell/GlobalSearch'
 import Notificaciones from './shell/Notificaciones'
 import Home from './modules/home/Home'
+
+function ToggleTema() {
+  const tema = useTema()
+  const oscuro = tema === 'dark'
+  return (
+    <button
+      className="hamburger"
+      onClick={() => setTema(oscuro ? 'light' : 'dark')}
+      aria-label={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+      title={oscuro ? 'Modo claro' : 'Modo oscuro'}
+    >
+      {oscuro ? (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+          <circle cx="12" cy="12" r="4.2" />
+          <path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7" />
+        </svg>
+      ) : (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11Z" />
+        </svg>
+      )}
+    </button>
+  )
+}
 
 function SinAcceso({ nombre }: { nombre: string }) {
   return (
@@ -26,10 +50,26 @@ function SessionControls({ compact }: { compact?: boolean }) {
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, flex: compact ? 1 : undefined }}>
         <span style={{ fontSize: 'var(--fs-xs)', fontWeight: 600, opacity: compact ? 0.7 : 0.8, color: compact ? 'var(--gray-700)' : undefined }}>Rol</span>
         <select
-          className="rol-select" value={sesion.rol} style={compact ? { flex: 1, color: 'var(--gray-900)', background: '#fff', borderColor: 'var(--gray-300)' } : undefined}
-          onChange={(e) => setSesion({ rol: e.target.value as Rol })} aria-label="Rol activo (demo de permisos)"
+          className="rol-select"
+          value={sesion.rolCustomId ? `custom:${sesion.rolCustomId}` : sesion.rol}
+          style={compact ? { flex: 1, color: 'var(--gray-900)', background: 'var(--surface)', borderColor: 'var(--gray-300)' } : undefined}
+          onChange={(e) => {
+            const v = e.target.value
+            if (v.startsWith('custom:')) {
+              const rc = db.rolesCustom.find((r) => r.id === v.slice(7))
+              if (rc) setSesion({ rol: rc.base, rolCustomId: rc.id })
+            } else {
+              setSesion({ rol: v as Rol })
+            }
+          }}
+          aria-label="Rol activo (demo de permisos)"
         >
           {Object.entries(ROL_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {db.rolesCustom.length > 0 && (
+            <optgroup label="Roles personalizados">
+              {db.rolesCustom.map((r) => <option key={r.id} value={`custom:${r.id}`}>{r.nombre}</option>)}
+            </optgroup>
+          )}
         </select>
       </label>
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, flex: compact ? 1 : undefined }}>
@@ -49,7 +89,7 @@ function SessionControls({ compact }: { compact?: boolean }) {
 function Drawer({ onClose }: { onClose: () => void }) {
   const sesion = useSesion()
   const db = useDB()
-  const visibles = modulosPara(sesion.rol, db.permisos)
+  const visibles = modulosPara(sesion.rol, db.permisos, rolCustomActivo(db, sesion))
   const loc = useLocation()
   return (
     <>
@@ -82,6 +122,7 @@ function Drawer({ onClose }: { onClose: () => void }) {
 export default function App() {
   const sesion = useSesion()
   const db = useDB()
+  const custom = rolCustomActivo(db, sesion)
   const [drawer, setDrawer] = useState(false)
 
   return (
@@ -98,6 +139,7 @@ export default function App() {
             <span>Taller&nbsp;360</span>
           </Link>
           <GlobalSearch />
+          <ToggleTema />
           <Notificaciones />
           <div className="topbar-session">
             <SessionControls />
@@ -114,7 +156,7 @@ export default function App() {
             <Route
               key={m.id}
               path={`${m.path}/*`}
-              element={puedeVerModulo(sesion.rol, m, db.permisos) ? <m.component /> : <SinAcceso nombre={m.nombre} />}
+              element={puedeVerModulo(sesion.rol, m, db.permisos, custom) ? <m.component /> : <SinAcceso nombre={m.nombre} />}
             />
           ))}
         </Routes>

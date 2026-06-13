@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { DB, Rol, Vale } from './types'
-import { ROLES_GLOBALES } from './types'
+import { ROLES_GLOBALES, ROL_LABEL as ROL_LABEL_LOCAL } from './types'
 import { seedDB } from './seed'
 
 // ── Capa de datos (patrón repositorio) ─────────────────────────────────
@@ -80,6 +80,8 @@ export function useDB(): DB {
 
 export interface Sesion {
   rol: Rol
+  /** Rol personalizado activo (sus permisos mandan sobre los del rol base). */
+  rolCustomId?: string
   /** Patio asignado. Cadena vacía = todos los patios (solo roles globales). */
   patio: string
 }
@@ -99,6 +101,8 @@ const rolListeners = new Set<() => void>()
 
 export function setSesion(cambio: Partial<Sesion>) {
   let next = { ...sesion, ...cambio }
+  // Si se cambia el rol base directamente, se suelta el rol personalizado
+  if (cambio.rol && cambio.rolCustomId === undefined) next = { ...next, rolCustomId: undefined }
   // Un rol no global siempre debe tener un patio asignado
   if (!esRolGlobal(next.rol) && !next.patio) next = { ...next, patio: state.config.patios[0] }
   sesion = next
@@ -120,16 +124,26 @@ export function useRol(): Rol {
   return useSesion().rol
 }
 
+/** Resuelve el rol personalizado activo en la sesión, si existe. */
+export function rolCustomActivo(db: DB, s: Sesion) {
+  return s.rolCustomId ? db.rolesCustom?.find((r) => r.id === s.rolCustomId) ?? null : null
+}
+
 /**
  * Alcance de datos de la sesión: devuelve el patio que limita la vista
- * ('' = sin límite) y un predicado para filtrar por patio.
+ * ('' = sin límite), un predicado para filtrar por patio, el rol custom
+ * activo y la etiqueta visible del puesto.
  */
 export function useScope() {
   const s = useSesion()
+  const db = useDB()
+  const custom = rolCustomActivo(db, s)
   const patio = esRolGlobal(s.rol) ? s.patio : s.patio || state.config.patios[0]
   const limite = esRolGlobal(s.rol) ? s.patio : patio
   return {
     rol: s.rol,
+    custom,
+    label: custom?.nombre ?? ROL_LABEL_LOCAL[s.rol],
     patio: limite,
     global: esRolGlobal(s.rol),
     enScope: (p?: string) => !limite || !p || p === limite,
@@ -156,6 +170,29 @@ export function auditar(d: DB, modulo: string, accion: string, detalle: string) 
     detalle,
   })
   if (d.auditoria.length > 800) d.auditoria.length = 800
+}
+
+// ── Tema (claro / oscuro) ───────────────────────────────────────────────
+type Tema = 'light' | 'dark'
+let tema: Tema = (localStorage.getItem('rai-tema') as Tema) || 'light'
+document.documentElement.dataset.theme = tema
+const temaListeners = new Set<() => void>()
+
+export function setTema(t: Tema) {
+  tema = t
+  localStorage.setItem('rai-tema', t)
+  document.documentElement.dataset.theme = t
+  temaListeners.forEach((l) => l())
+}
+
+export function useTema(): Tema {
+  return useSyncExternalStore(
+    (cb) => {
+      temaListeners.add(cb)
+      return () => temaListeners.delete(cb)
+    },
+    () => tema,
+  )
 }
 
 // ── Reglas de negocio (del Formulario de procesos) ─────────────────────

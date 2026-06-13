@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import type { DB, Rol, PermisosConfig } from './types'
+import type { DB, Rol, PermisosConfig, RolCustom } from './types'
 import { ROLES_GLOBALES } from './types'
 import { patioDeVale } from './store'
 import { diasDesde } from './format'
@@ -44,11 +44,15 @@ export interface ModuleDef {
 
 /**
  * ¿El rol puede entrar al módulo? ADMIN y GERENTE ven todo.
- * Si hay un override de módulos para el rol en `permisos`, manda ese;
- * si no, se usa la lista `roles` por defecto del módulo.
+ * Con rol personalizado manda su lista de módulos; si no, el override del
+ * rol en `permisos` y por último la lista `roles` por defecto del módulo.
  */
-export function puedeVerModulo(rol: Rol, m: ModuleDef, permisos?: PermisosConfig): boolean {
-  if (m.soloAdmin) return rol === 'ADMIN'
+export function puedeVerModulo(rol: Rol, m: ModuleDef, permisos?: PermisosConfig, custom?: RolCustom | null): boolean {
+  if (m.soloAdmin) return !custom && rol === 'ADMIN'
+  if (custom) {
+    if (m.soloGlobal && !ROLES_GLOBALES.includes(custom.base)) return false
+    return custom.modulos.includes(m.id)
+  }
   if (ROLES_GLOBALES.includes(rol)) return true
   if (m.soloGlobal) return false
   const override = permisos?.modulos?.[rol]
@@ -56,8 +60,8 @@ export function puedeVerModulo(rol: Rol, m: ModuleDef, permisos?: PermisosConfig
   return !m.roles || m.roles.includes(rol)
 }
 
-export const modulosPara = (rol: Rol, permisos?: PermisosConfig) =>
-  MODULES.filter((m) => puedeVerModulo(rol, m, permisos))
+export const modulosPara = (rol: Rol, permisos?: PermisosConfig, custom?: RolCustom | null) =>
+  MODULES.filter((m) => puedeVerModulo(rol, m, permisos, custom))
 
 export const MODULES: ModuleDef[] = [
   {

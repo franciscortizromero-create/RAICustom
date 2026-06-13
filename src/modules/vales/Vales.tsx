@@ -3,6 +3,7 @@ import { useDB, update, useRol, useScope, puedeAutorizarVale, patioDeVale, audit
 import { VALE_TIPO_LABEL, ROL_LABEL, type Vale, type ValeTipo } from '../../core/types'
 import { Icon, Modal, Field, PageHeader, ValeBadge, Empty } from '../../core/ui'
 import { exportarCSV } from '../../core/export'
+import { imprimir } from '../../core/print'
 import { mxn, fechaCorta, hoyISO, uid } from '../../core/format'
 
 export default function Vales() {
@@ -46,6 +47,43 @@ export default function Vales() {
       x.firmaProveedor = true
       auditar(d, 'Vales', 'Vale surtido', `Vale #${x.folio} · ${mxn(x.monto)}`)
     })
+
+  // Vale imprimible con el formato del vale físico de RAI (original + copia)
+  const imprimirVale = (v: Vale) => {
+    const o = db.ordenes.find((x) => x.id === v.ordenId)
+    const prov = db.proveedores.find((p) => p.id === v.proveedorId)
+    imprimir(
+      `Vale ${v.folio} · RAI`,
+      `
+      <div class="grid">
+        <div><div class="lbl">Proveedor</div><div class="val">${prov?.nombre ?? '—'}</div></div>
+        <div><div class="lbl">Fecha</div><div class="val">${fechaCorta(v.fecha)}</div></div>
+        <div><div class="lbl">Tipo</div><div class="val">${VALE_TIPO_LABEL[v.tipo]}</div></div>
+        <div><div class="lbl">Solicita</div><div class="val">${v.solicita}</div></div>
+        ${o ? `
+        <div><div class="lbl">Orden de trabajo / Torre</div><div class="val">OT ${o.folio} · ${o.torre}</div></div>
+        <div><div class="lbl">Vehículo (tipo, color y placa)</div><div class="val">${o.vehiculo.marca} ${o.vehiculo.tipo} · ${o.vehiculo.color} · ${o.vehiculo.placas}</div></div>
+        ` : `<div><div class="lbl">Destino</div><div class="val">Material de almacén${v.patio ? ` · ${v.patio}` : ''}</div></div>`}
+      </div>
+      <table>
+        <thead><tr><th>Descripción</th><th style="text-align:right">Costo (+IVA)</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>${v.descripcion}${v.detalle ? `<br/><span style="color:#5d6b81;font-size:11px">${v.detalle}</span>` : ''}</td>
+            <td style="text-align:right;font-weight:700">${mxn(v.monto)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="total">Total: ${mxn(v.monto)}</div>
+      <div class="firmas">
+        <div>Nombre y firma de quien autoriza${v.autorizadoPor ? `<br/><strong>${v.autorizadoPor}</strong>` : ''}</div>
+        <div>Firma de recibido del proveedor</div>
+      </div>
+      `,
+      `Vale de ${VALE_TIPO_LABEL[v.tipo]}`,
+      `#${v.folio}`,
+    )
+  }
 
   return (
     <>
@@ -107,7 +145,7 @@ export default function Vales() {
               const prov = db.proveedores.find((p) => p.id === v.proveedorId)
               return (
                 <tr key={v.id}>
-                  <td style={{ fontWeight: 700, color: 'var(--rai-blue-700)' }}>#{v.folio}</td>
+                  <td style={{ fontWeight: 700, color: 'var(--ink-brand)' }}>#{v.folio}</td>
                   <td><span className="badge badge-gray">{VALE_TIPO_LABEL[v.tipo]}</span></td>
                   <td>{o ? `${o.folio} · ${o.torre}` : '— almacén —'}</td>
                   <td>{prov?.nombre}</td>
@@ -135,11 +173,18 @@ export default function Vales() {
                         </span>
                       )
                     )}
-                    {v.status === 'AUTORIZADO' && (
-                      <button className="btn btn-outline btn-sm" onClick={() => surtir(v)}>
-                        <Icon name="truck" size={14} /> Surtido + firma
-                      </button>
-                    )}
+                    <div className="row" style={{ gap: 6, flexWrap: 'nowrap', marginTop: v.status === 'PENDIENTE' ? 6 : 0 }}>
+                      {v.status === 'AUTORIZADO' && (
+                        <button className="btn btn-outline btn-sm" onClick={() => surtir(v)}>
+                          <Icon name="truck" size={14} /> Surtido + firma
+                        </button>
+                      )}
+                      {v.status !== 'PENDIENTE' && v.status !== 'RECHAZADO' && (
+                        <button className="btn btn-ghost btn-sm" onClick={() => imprimirVale(v)} aria-label={`Imprimir vale ${v.folio}`}>
+                          <Icon name="invoice" size={14} /> PDF
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )
